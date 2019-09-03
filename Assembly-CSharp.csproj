@@ -60,6 +60,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Domain\Action.cs" />
+    <Compile Include="Assets\Domain\ButtonAct.cs" />
+    <Compile Include="Assets\Domain\ButtonChar.cs" />
+    <Compile Include="Assets\Domain\Character.cs" />
+    <Compile Include="Assets\Domain\Scene.cs" />
+    <Compile Include="Assets\Domain\Skill.cs" />
+    <Compile Include="Assets\Domain\Stat.cs" />
+    <Compile Include="Assets\Domain\Team.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\Credentials.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\Digest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\DigestStore.cs" />
@@ -857,36 +865,6 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\WebSocket\WebSocket.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\WebSocket\WebSocketResponse.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\WebSocket\WebSocketStatusCodes.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\Helpers\CodeBlocks.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\Helpers\GUIHelper.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\HTTP\AssetBundleSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\HTTP\LargeFileDownloadSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\HTTP\TextureDownloadSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\HTTP\UploadStream.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\IJsonWrapper.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonData.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonException.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonMapper.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonMockWrapper.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonReader.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\JsonWriter.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\Lexer.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\LitJson\ParserToken.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\Plugin\CacheMaintenanceSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SampleSelector.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\Authentication Providers\SampleCookieAuthentication.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\Authentication Providers\SampleHeaderAuthentication.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\AuthenticationSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\ConnectionAPISample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\ConnectionStatusSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\DemoHubSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\Json Encoders\LitJsonEncoder.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SignalR\SimpleStreamingSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SocketIO\SocketIO Json Encoders\JsonDotNetEncoder.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SocketIO\SocketIO Json Encoders\LitJsonEncoder.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SocketIO\SocketIOChatSample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\SocketIO\SocketIOWePlaySample.cs" />
-    <Compile Include="Assets\Downloads\Best HTTP (Pro)\Examples\Websocket\WebSocketSample.cs" />
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\Antialiasing.cs" />
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\Bloom.cs" />
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\BloomAndFlares.cs" />
@@ -927,6 +905,7 @@
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\Vortex.cs" />
     <Compile Include="Assets\scr.cs" />
     <Compile Include="Assets\Scripts\Conexion.cs" />
+    <Compile Include="Assets\Scripts\Temporizador.cs" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\GlassRefraction\Shaders\GlassStainedBumpDistort.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_BloomAndFlares\BlendOneOne.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\NoiseEffectShaderRGB.shader" />

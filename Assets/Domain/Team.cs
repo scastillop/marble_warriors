@@ -1,7 +1,24 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
-public class Team : MonoBehaviour
+public class Team
 {
     private int user_id;
-    private Character[] characters;
+    public List<GameObject> characters;
+
+    //constructor
+    public Team(int user_id)
+    {
+        this.user_id = user_id;
+        this.characters = new List<GameObject>();
+    }
+
+    //agrega un personaje al equipo
+    public void AddChar(GameObject character)
+    {
+        this.characters.Add(character);
+
+    }
+
+
 }

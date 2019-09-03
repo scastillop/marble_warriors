@@ -1,13 +1,14 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class Character : MonoBehaviour
 {
-
-    private int id;
-    private string characterName;
-    private int position;
-    private int model;
-    private Stat stat;
-    private Skill[] skills;
+    public int id;
+    public string characterName;
+    public int position;
+    public int model;
+    public Stat initialStat;
+    public Stat actualStat;
+    public List<Skill> skills;
 
 }

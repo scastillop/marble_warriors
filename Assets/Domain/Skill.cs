@@ -1,9 +1,16 @@
 ﻿using UnityEngine;
 
-public class Skill : MonoBehaviour
+public class Skill
 
 {
-    private string skillName;
-    private int cost;
+    public string skillName;
+    public int cost;
     private Stat stats;
+
+    public Skill(string skillName, int cost, Stat stats)
+    {
+        this.skillName = skillName;
+        this.cost = cost;
+        this.stats = stats;
+    }
 }
