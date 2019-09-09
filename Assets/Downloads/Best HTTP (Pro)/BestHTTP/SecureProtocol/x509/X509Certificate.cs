@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections;
+using System.IO;
 using System.Text;
 
 using Org.BouncyCastle.Asn1;
@@ -15,6 +16,7 @@ using Org.BouncyCastle.Security.Certificates;
 using Org.BouncyCastle.Utilities;
 using Org.BouncyCastle.Utilities.Encoders;
 using Org.BouncyCastle.X509.Extension;
+using Org.BouncyCastle.Crypto.Operators;
 
 namespace Org.BouncyCastle.X509
 {
@@ -237,16 +239,16 @@ namespace Org.BouncyCastle.X509
 		/// <returns>A byte array containg the signature of the certificate.</returns>
 		public virtual byte[] GetSignature()
 		{
-			return c.Signature.GetBytes();
+			return c.GetSignatureOctets();
 		}
 
-		/// <summary>
+        /// <summary>
 		/// A meaningful version of the Signature Algorithm. (EG SHA1WITHRSA)
 		/// </summary>
 		/// <returns>A sting representing the signature algorithm.</returns>
 		public virtual string SigAlgName
 		{
-			get { return SignerUtilities.GetEncodingName(c.SignatureAlgorithm.ObjectID); }
+            get { return SignerUtilities.GetEncodingName(c.SignatureAlgorithm.Algorithm); }
 		}
 
 		/// <summary>
@@ -255,7 +257,7 @@ namespace Org.BouncyCastle.X509
 		/// <returns>A string containg a '.' separated object id.</returns>
 		public virtual string SigAlgOid
 		{
-			get { return c.SignatureAlgorithm.ObjectID.Id; }
+            get { return c.SignatureAlgorithm.Algorithm.Id; }
 		}
 
 		/// <summary>
@@ -311,7 +313,7 @@ namespace Org.BouncyCastle.X509
 				Asn1Sequence seq = Asn1Sequence.GetInstance(
 					X509ExtensionUtilities.FromExtensionValue(str));
 
-                IList list = Platform.CreateArrayList();
+                IList list = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
 
 				foreach (DerObjectIdentifier oid in seq)
 				{
@@ -363,10 +365,10 @@ namespace Org.BouncyCastle.X509
 
 			GeneralNames gns = GeneralNames.GetInstance(asn1Object);
 
-            IList result = Platform.CreateArrayList();
+            IList result = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
 			foreach (GeneralName gn in gns.GetNames())
 			{
-                IList entry = Platform.CreateArrayList();
+                IList entry = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
 				entry.Add(gn.TagNo);
 				entry.Add(gn.Name.ToString());
 				result.Add(entry);
@@ -376,7 +378,7 @@ namespace Org.BouncyCastle.X509
 
 		protected override X509Extensions GetX509Extensions()
 		{
-			return c.Version == 3
+			return c.Version >= 3
 				?	c.TbsCertificate.Extensions
 				:	null;
 		}
@@ -452,7 +454,7 @@ namespace Org.BouncyCastle.X509
 		public override string ToString()
 		{
 			StringBuilder buf = new StringBuilder();
-			string nl = Platform.NewLine;
+			string nl = Org.BouncyCastle.Utilities.Platform.NewLine;
 
 			buf.Append("  [0]         Version: ").Append(this.Version).Append(nl);
 			buf.Append("         SerialNumber: ").Append(this.SerialNumber).Append(nl);
@@ -547,30 +549,38 @@ namespace Org.BouncyCastle.X509
 		public virtual void Verify(
 			AsymmetricKeyParameter key)
 		{
-			string sigName = X509SignatureUtilities.GetSignatureName(c.SignatureAlgorithm);
-			ISigner signature = SignerUtilities.GetSigner(sigName);
-
-			CheckSignature(key, signature);
+			CheckSignature(new Asn1VerifierFactory(c.SignatureAlgorithm, key));
 		}
 
-		protected virtual void CheckSignature(
-			AsymmetricKeyParameter	publicKey,
-			ISigner					signature)
+        /// <summary>
+        /// Verify the certificate's signature using a verifier created using the passed in verifier provider.
+        /// </summary>
+        /// <param name="verifierProvider">An appropriate provider for verifying the certificate's signature.</param>
+        /// <returns>True if the signature is valid.</returns>
+        /// <exception cref="Exception">If verifier provider is not appropriate or the certificate algorithm is invalid.</exception>
+        public virtual void Verify(
+            IVerifierFactoryProvider verifierProvider)
+        {
+            CheckSignature(verifierProvider.CreateVerifierFactory (c.SignatureAlgorithm));
+        }
+
+        protected virtual void CheckSignature(
+			IVerifierFactory verifier)
 		{
 			if (!IsAlgIDEqual(c.SignatureAlgorithm, c.TbsCertificate.Signature))
 				throw new CertificateException("signature algorithm in TBS cert not same as outer cert");
 
-			Asn1Encodable parameters = c.SignatureAlgorithm.Parameters;
+			//Asn1Encodable parameters = c.SignatureAlgorithm.Parameters;
 
-			X509SignatureUtilities.SetSignatureParameters(signature, parameters);
-
-			signature.Init(false, publicKey);
+            IStreamCalculator streamCalculator = verifier.CreateCalculator();
 
 			byte[] b = this.GetTbsCertificate();
-			signature.BlockUpdate(b, 0, b.Length);
 
-			byte[] sig = this.GetSignature();
-			if (!signature.VerifySignature(sig))
+			streamCalculator.Stream.Write(b, 0, b.Length);
+
+            Org.BouncyCastle.Utilities.Platform.Dispose(streamCalculator.Stream);
+
+            if (!((IVerifier)streamCalculator.GetResult()).IsVerified(this.GetSignature()))
 			{
 				throw new InvalidKeyException("Public key presented not for certificate signature");
 			}
@@ -578,14 +588,14 @@ namespace Org.BouncyCastle.X509
 
 		private static bool IsAlgIDEqual(AlgorithmIdentifier id1, AlgorithmIdentifier id2)
 		{
-			if (!id1.ObjectID.Equals(id2.ObjectID))
+            if (!id1.Algorithm.Equals(id2.Algorithm))
 				return false;
 
 			Asn1Encodable p1 = id1.Parameters;
 			Asn1Encodable p2 = id2.Parameters;
 
 			if ((p1 == null) == (p2 == null))
-				return Platform.Equals(p1, p2);
+				return Org.BouncyCastle.Utilities.Platform.Equals(p1, p2);
 
 			// Exactly one of p1, p2 is null at this point
 			return p1 == null

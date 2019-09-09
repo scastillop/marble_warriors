@@ -20,7 +20,7 @@ namespace BestHTTP.Extensions
 
         #endregion
 
-        #region Contstructors
+        #region Constructors
 
         public HeaderValue()
         { }

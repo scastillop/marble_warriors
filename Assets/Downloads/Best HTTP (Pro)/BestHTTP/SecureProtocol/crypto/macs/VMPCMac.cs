@@ -168,7 +168,7 @@ namespace Org.BouncyCastle.Crypto.Macs
 
 			for (int i = 0; i < len; i++)
 			{
-				Update(input[i]);
+				Update(input[inOff + i]);
 			}
 		}
 	}

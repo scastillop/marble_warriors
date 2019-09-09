@@ -41,9 +41,9 @@ namespace Org.BouncyCastle.Crypto.Encodings
 
         static Pkcs1Encoding()
         {
-            //string strictProperty = Platform.GetEnvironmentVariable(StrictLengthEnabledProperty);
+            string strictProperty = Org.BouncyCastle.Utilities.Platform.GetEnvironmentVariable(StrictLengthEnabledProperty);
 
-            strictLengthEnabled = new bool[]{ true /*strictProperty == null || strictProperty.Equals("true")*/};
+            strictLengthEnabled = new bool[]{ strictProperty == null || strictProperty.Equals("true")};
         }
 
 

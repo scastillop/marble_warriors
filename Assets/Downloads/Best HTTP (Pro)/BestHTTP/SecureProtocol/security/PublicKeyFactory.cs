@@ -1,12 +1,15 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 
 using System;
+using System.Collections;
 using System.IO;
+using System.Text;
 
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.CryptoPro;
 using Org.BouncyCastle.Asn1.Oiw;
 using Org.BouncyCastle.Asn1.Pkcs;
+using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Asn1.X509;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
@@ -43,7 +46,7 @@ namespace Org.BouncyCastle.Security
             SubjectPublicKeyInfo keyInfo)
         {
             AlgorithmIdentifier algID = keyInfo.AlgorithmID;
-            DerObjectIdentifier algOid = algID.ObjectID;
+            DerObjectIdentifier algOid = algID.Algorithm;
 
             // TODO See RSAUtil.isRsaOid in Java build
             if (algOid.Equals(PkcsObjectIdentifiers.RsaEncryption)

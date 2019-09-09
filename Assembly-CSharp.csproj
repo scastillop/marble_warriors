@@ -91,17 +91,21 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Decompression\ZlibCodec.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Decompression\ZlibConstants.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Decompression\ZTree.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\CircularBuffer.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\Extensions.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\Future.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\HeaderParser.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\HeaderValue.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\HeartbeatManager.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\KeyValuePairList.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\WriteOnlyBufferedStream.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Extensions\WWWAuthenticateHeaderParser.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\HTTPFieldData.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\HTTPFormBase.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\HTTPFormUsage.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\Implementations\HTTPMultiPartForm.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\Implementations\HTTPUrlEncodedForm.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\Implementations\RawJSonForm.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Forms\Implementations\UnityForm.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\HTTPConnection.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\HTTPConnectionStates.cs" />
@@ -151,6 +155,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\Asn1Tags.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BerApplicationSpecific.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BerApplicationSpecificParser.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BERBitString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BERGenerator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BerOctetString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\BEROctetStringParser.cs" />
@@ -180,6 +185,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerGeneralizedTime.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerGeneralString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DERGenerator.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerGraphicString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerIA5String.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerInteger.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerNull.cs" />
@@ -200,6 +206,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerUniversalString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerUTCTime.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerUTF8String.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerVideotexString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\DerVisibleString.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\iana\IANAObjectIdentifiers.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\asn1\IAsn1ApplicationSpecificParser.cs" />
@@ -293,6 +300,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\DataLengthException.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\GeneralDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\GOST3411Digest.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\KeccakDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\LongDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\MD2Digest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\MD4Digest.cs" />
@@ -309,6 +317,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\SHA3Digest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\Sha512Digest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\Sha512tDigest.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\ShakeDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\TigerDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\digests\WhirlpoolDigest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\ec\CustomNamedCurves.cs" />
@@ -323,6 +332,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\CamelliaWrapEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\Cast5Engine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\Cast6Engine.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\ChaCha7539Engine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\ChaChaEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\DesEdeEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\DesEdeWrapEngine.cs" />
@@ -349,6 +359,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\SEEDEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\SEEDWrapEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\SerpentEngine.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\SerpentEngineBase.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\SkipjackEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\TEAEngine.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\engines\TwofishEngine.cs" />
@@ -368,6 +379,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IAsymmetricCipherKeyPairGenerator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IBasicAgreement.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IBlockCipher.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IBlockResult.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IBufferedCipher.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\ICipherParameters.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IDerivationFunction.cs" />
@@ -376,10 +388,16 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IDSA.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IMac.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\InvalidCipherTextException.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\ISignatureFactory.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\ISigner.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\ISignerWithRecovery.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IStreamCalculator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IStreamCipher.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IVerifier.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IVerifierFactory.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IVerifierFactoryProvider.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IWrapper.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\IXof.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\KeyGenerationParameters.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\macs\CbcBlockCipherMac.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\macs\CfbBlockCipherMac.cs" />
@@ -408,6 +426,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\modes\OfbBlockCipher.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\modes\OpenPgpCfbBlockCipher.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\modes\SicBlockCipher.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\operators\Asn1Signature.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\OutputLengthException.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\paddings\BlockCipherPadding.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\paddings\ISO10126d2Padding.cs" />
@@ -479,6 +498,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\HMacDsaKCalculator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\IDsaKCalculator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\Iso9796d2Signer.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\IsoTrailers.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\PssSigner.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\RandomDsaKCalculator.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\signers\RsaDigestSigner.cs" />
@@ -498,6 +518,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\AlertLevel.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\AlwaysValidVerifyer.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\ByteQueue.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\ByteQueueStream.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\CertChainType.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\Certificate.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\crypto\tls\CertificateRequest.cs" />
@@ -675,6 +696,12 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT163R1Point.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT163R2Curve.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT163R2Point.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193Field.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193FieldElement.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193R1Curve.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193R1Point.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193R2Curve.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT193R2Point.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT233Field.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT233FieldElement.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\math\ec\custom\sec\SecT233K1Curve.cs" />
@@ -784,6 +811,7 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\Integers.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\BaseInputStream.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\BaseOutputStream.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\FilterStream.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\pem\PemGenerationException.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\pem\PemHeader.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\util\io\pem\PemObject.cs" />
@@ -840,6 +868,14 @@
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalR\Transports\ServerSentEventsTransport.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalR\Transports\TransportBase.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalR\Transports\WebSocketTransport.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\HelperClasses.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\HubConnection.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\IAuthenticationProvider.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\JsonProtocol.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\Messages\Invocation.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\Messages\Message.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\Messages\NegotiationResult.cs" />
+    <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SignalRCore\Transports\WebsocketTransport.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SocketIO\Enums.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SocketIO\Error.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SocketIO\Events\EventDescriptor.cs" />
@@ -916,6 +952,7 @@
     <None Include="Assets\TextMesh Pro\Resources\LineBreaking Leading Characters.txt" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\SunShaftsComposite.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\ColorCorrectionCurves.shader" />
+    <None Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\SecureProtocol\License.txt" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\ScreenSpaceAmbientObscurance.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_Antialiasing\NFAA.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_DepthOfField\TiltShiftHdrLensBlur.shader" />
@@ -924,6 +961,7 @@
     <None Include="Assets\Downloads\NatureStarterKit2\info.txt" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\TessellationShaders\Shaders\BumpedSpecularSmooth.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\Projectors\Guidelines.txt" />
+    <None Include="Assets\Downloads\Best HTTP (Pro)\link_android_subset.xml" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\MotionBlur.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_BloomAndFlares\MobileBloom.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\Contrast Stretch\MinMaxReduction.shader" />
@@ -998,6 +1036,7 @@
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_Antialiasing\FXAA3Console.shader" />
     <None Include="Assets\TextMesh Pro\Resources\Shaders\TMP_Sprite.shader" />
     <None Include="Assets\TextMesh Pro\Resources\Shaders\TMP_SDF-Surface.shader" />
+    <None Include="Assets\Downloads\Best HTTP (Pro)\license.txt" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_Antialiasing\FXAAPreset2.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_BloomAndFlares\BlurAndFlares.shader" />
     <None Include="Assets\Downloads\Best HTTP (Pro)\link.xml" />

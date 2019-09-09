@@ -5,6 +5,8 @@ using System;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Crypto.Modes
 {
     /**
@@ -16,9 +18,9 @@ namespace Org.BouncyCastle.Crypto.Modes
     {
         private readonly IBlockCipher cipher;
         private readonly int blockSize;
-        private readonly byte[] IV;
         private readonly byte[] counter;
         private readonly byte[] counterOut;
+        private byte[] IV;
 
         /**
         * Basic constructor.
@@ -29,9 +31,9 @@ namespace Org.BouncyCastle.Crypto.Modes
         {
             this.cipher = cipher;
             this.blockSize = cipher.GetBlockSize();
-            this.IV = new byte[blockSize];
             this.counter = new byte[blockSize];
             this.counterOut = new byte[blockSize];
+            this.IV = new byte[blockSize];
         }
 
         /**
@@ -39,51 +41,53 @@ namespace Org.BouncyCastle.Crypto.Modes
         *
         * @return the underlying block cipher that we are wrapping.
         */
-        public IBlockCipher GetUnderlyingCipher()
+        public virtual IBlockCipher GetUnderlyingCipher()
         {
             return cipher;
         }
 
-        public void Init(
+        public virtual void Init(
             bool				forEncryption, //ignored by this CTR mode
             ICipherParameters	parameters)
         {
-            if (parameters is ParametersWithIV)
-            {
-                ParametersWithIV ivParam = (ParametersWithIV) parameters;
-                byte[] iv = ivParam.GetIV();
-                Array.Copy(iv, 0, IV, 0, IV.Length);
+            ParametersWithIV ivParam = parameters as ParametersWithIV;
+            if (ivParam == null)
+                throw new ArgumentException("CTR/SIC mode requires ParametersWithIV", "parameters");
 
-                Reset();
+            this.IV = Arrays.Clone(ivParam.GetIV());
 
-                // if null it's an IV changed only.
-                if (ivParam.Parameters != null)
-                {
-                    cipher.Init(true, ivParam.Parameters);
-                }
-            }
-            else
+            if (blockSize < IV.Length)
+                throw new ArgumentException("CTR/SIC mode requires IV no greater than: " + blockSize + " bytes.");
+
+            int maxCounterSize = System.Math.Min(8, blockSize / 2);
+            if (blockSize - IV.Length > maxCounterSize)
+                throw new ArgumentException("CTR/SIC mode requires IV of at least: " + (blockSize - maxCounterSize) + " bytes.");
+
+            // if null it's an IV changed only.
+            if (ivParam.Parameters != null)
             {
-                throw new ArgumentException("SIC mode requires ParametersWithIV", "parameters");
+                cipher.Init(true, ivParam.Parameters);
             }
+
+            Reset();
         }
 
-        public string AlgorithmName
+        public virtual string AlgorithmName
         {
             get { return cipher.AlgorithmName + "/SIC"; }
         }
 
-        public bool IsPartialBlockOkay
+        public virtual bool IsPartialBlockOkay
         {
             get { return true; }
         }
 
-        public int GetBlockSize()
+        public virtual int GetBlockSize()
         {
             return cipher.GetBlockSize();
         }
 
-        public int ProcessBlock(
+        public virtual int ProcessBlock(
             byte[]	input,
             int		inOff,
             byte[]	output,
@@ -108,9 +112,10 @@ namespace Org.BouncyCastle.Crypto.Modes
             return counter.Length;
         }
 
-        public void Reset()
+        public virtual void Reset()
         {
-            Array.Copy(IV, 0, counter, 0, counter.Length);
+            Arrays.Fill(counter, (byte)0);
+            Array.Copy(IV, 0, counter, 0, IV.Length);
             cipher.Reset();
         }
     }

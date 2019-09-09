@@ -141,7 +141,7 @@ namespace BestHTTP.WebSocket.Frames
             this.Header &= 0x7F;
 
             // One chunk will remain in this fragment, so we have to allocate one less
-            int count = (this.Data.Length / maxFragmentSize) + (this.Data.Length % maxFragmentSize) - 1;
+            int count = (this.Data.Length / maxFragmentSize) + (this.Data.Length % maxFragmentSize == 0 ? -1 : 0);
 
             WebSocketFrame[] fragments = new WebSocketFrame[count];
 

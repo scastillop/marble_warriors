@@ -2,8 +2,8 @@
 using System;
 using System.Collections;
 
-using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Utilities;
 
 namespace Org.BouncyCastle.Asn1.CryptoPro
 {
@@ -33,7 +33,7 @@ namespace Org.BouncyCastle.Asn1.CryptoPro
                 return new Gost3410ParamSetParameters((Asn1Sequence) obj);
             }
 
-			throw new ArgumentException("Invalid GOST3410Parameter: " + obj.GetType().Name);
+            throw new ArgumentException("Invalid GOST3410Parameter: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
 		public Gost3410ParamSetParameters(

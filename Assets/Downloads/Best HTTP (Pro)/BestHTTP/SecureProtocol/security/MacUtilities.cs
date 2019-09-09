@@ -1,6 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 
+using System;
 using System.Collections;
+using System.Globalization;
 
 using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Iana;
@@ -22,8 +24,8 @@ namespace Org.BouncyCastle.Security
         {
         }
 
-        private static readonly IDictionary algorithms = Platform.CreateHashtable();
-        //private static readonly IDictionary oids = Platform.CreateHashtable();
+        private static readonly IDictionary algorithms = Org.BouncyCastle.Utilities.Platform.CreateHashtable();
+        //private static readonly IDictionary oids = Org.BouncyCastle.Utilities.Platform.CreateHashtable();
 
         static MacUtilities()
         {
@@ -81,7 +83,7 @@ namespace Org.BouncyCastle.Security
 //		public static DerObjectIdentifier GetObjectIdentifier(
 //			string mechanism)
 //		{
-//			mechanism = (string) algorithms[Platform.ToUpperInvariant(mechanism)];
+//			mechanism = (string) algorithms[Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(mechanism)];
 //
 //			if (mechanism != null)
 //			{
@@ -105,7 +107,7 @@ namespace Org.BouncyCastle.Security
         public static IMac GetMac(
             string algorithm)
         {
-            string upper = Platform.ToUpperInvariant(algorithm);
+            string upper = Org.BouncyCastle.Utilities.Platform.ToUpperInvariant(algorithm);
 
             string mechanism = (string) algorithms[upper];
 
@@ -114,15 +116,15 @@ namespace Org.BouncyCastle.Security
                 mechanism = upper;
             }
 
-            if (mechanism.StartsWith("PBEWITH"))
+            if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "PBEWITH"))
             {
                 mechanism = mechanism.Substring("PBEWITH".Length);
             }
 
-            if (mechanism.StartsWith("HMAC"))
+            if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "HMAC"))
             {
                 string digestName;
-                if (mechanism.StartsWith("HMAC-") || mechanism.StartsWith("HMAC/"))
+                if (Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "HMAC-") || Org.BouncyCastle.Utilities.Platform.StartsWith(mechanism, "HMAC/"))
                 {
                     digestName = mechanism.Substring(5);
                 }
@@ -230,6 +232,14 @@ namespace Org.BouncyCastle.Security
             DerObjectIdentifier oid)
         {
             return (string) algorithms[oid.Id];
+        }
+
+        public static byte[] CalculateMac(string algorithm, ICipherParameters cp, byte[] input)
+        {
+            IMac mac = GetMac(algorithm);
+            mac.Init(cp);
+            mac.BlockUpdate(input, 0, input.Length);
+            return DoFinal(mac);
         }
 
         public static byte[] DoFinal(IMac mac)

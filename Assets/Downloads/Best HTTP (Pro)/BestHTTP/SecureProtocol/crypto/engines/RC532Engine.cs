@@ -3,6 +3,7 @@
 using System;
 
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 #if UNITY_WSA && !UNITY_EDITOR && !ENABLE_IL2CPP
 using System.TypeFix;
@@ -97,7 +98,7 @@ namespace Org.BouncyCastle.Crypto.Engines
             }
             else
             {
-                throw new ArgumentException("invalid parameter passed to RC532 init - " + parameters.GetType().ToString());
+                throw new ArgumentException("invalid parameter passed to RC532 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
             }
 
             this.forEncryption = forEncryption;

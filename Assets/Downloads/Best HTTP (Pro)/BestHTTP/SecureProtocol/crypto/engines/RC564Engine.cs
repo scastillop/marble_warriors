@@ -3,6 +3,7 @@
 using System;
 
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 #if UNITY_WSA && !UNITY_EDITOR && !ENABLE_IL2CPP
 using System.TypeFix;
@@ -86,7 +87,7 @@ namespace Org.BouncyCastle.Crypto.Engines
         {
             if (!(typeof(RC5Parameters).IsInstanceOfType(parameters)))
             {
-                throw new ArgumentException("invalid parameter passed to RC564 init - " + parameters.GetType().ToString());
+                throw new ArgumentException("invalid parameter passed to RC564 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
             }
 
             RC5Parameters       p = (RC5Parameters)parameters;

@@ -1,5 +1,8 @@
 ﻿#if !BESTHTTP_DISABLE_SIGNALR
 
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+using Newtonsoft.Json.Linq;
+#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -43,7 +46,7 @@ namespace BestHTTP.SignalR.Messages
         public bool ShouldReconnect { get; private set; }
 
         /// <summary>
-        /// Additional poll deleay sent by the server.
+        /// Additional poll delay sent by the server.
         /// </summary>
         public TimeSpan? PollDelay { get; private set; }
 
@@ -83,7 +86,11 @@ namespace BestHTTP.SignalR.Messages
 
                 foreach (object subData in enumerable)
                 {
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                    IDictionary<string, JToken> subObj = subData as IDictionary<string, JToken>;
+#else
                     IDictionary<string, object> subObj = subData as IDictionary<string, object>;
+#endif
 
                     IServerMessage subMsg = null;
 
@@ -147,11 +154,19 @@ namespace BestHTTP.SignalR.Messages
         /// <summary>
         /// State changes of the hub. It's handled automatically by the Hub.
         /// </summary>
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+        public IDictionary<string, JToken> State { get; private set; }
+#else
         public IDictionary<string, object> State { get; private set; }
+#endif
 
         void IServerMessage.Parse(object data)
         {
-            IDictionary<string, object> dic = data as IDictionary<string, object>;
+            #if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                IDictionary<string, JToken> dic = data as IDictionary<string, JToken>;
+            #else
+                IDictionary<string, object> dic = data as IDictionary<string, object>;
+            #endif
 
             Hub = dic["H"].ToString();
             Method = dic["M"].ToString();
@@ -161,9 +176,15 @@ namespace BestHTTP.SignalR.Messages
                 args.Add(arg);
             Arguments = args.ToArray();
 
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+            JToken value;
+            if (dic.TryGetValue("S", out value))
+                State = value as IDictionary<string, JToken>;
+#else
             object value;
             if (dic.TryGetValue("S", out value))
                 State = value as IDictionary<string, object>;
+#endif
         }
     }
 
@@ -187,7 +208,11 @@ namespace BestHTTP.SignalR.Messages
         /// <summary>
         /// State changes of the hub. It's handled automatically by the Hub.
         /// </summary>
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+        public IDictionary<string, JToken> State { get; private set; }
+#else
         public IDictionary<string, object> State { get; private set; }
+#endif
 
         void IServerMessage.Parse(object data)
         {
@@ -200,7 +225,13 @@ namespace BestHTTP.SignalR.Messages
                 ReturnValue = value;
 
             if (dic.TryGetValue("S", out value))
-                State = value as IDictionary<string, object>;
+            {
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                    State = value as IDictionary<string, JToken>;
+#else
+                    State = value as IDictionary<string, object>;
+#endif
+            }
         }
     }
 
@@ -226,7 +257,11 @@ namespace BestHTTP.SignalR.Messages
         /// <summary>
         /// A dictionary that may contain additional error data (can only be present for hub errors). It can be null.
         /// </summary>
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+        public IDictionary<string, JToken> AdditionalData { get; private set; }
+#else
         public IDictionary<string, object> AdditionalData { get; private set; }
+#endif
 
         /// <summary>
         /// Stack trace of the error. It present only if detailed error reporting is turned on on the server (https://msdn.microsoft.com/en-us/library/microsoft.aspnet.signalr.hubconfiguration.enabledetailederrors%28v=vs.118%29.aspx).
@@ -236,7 +271,11 @@ namespace BestHTTP.SignalR.Messages
         /// <summary>
         /// State changes of the hub. It's handled automatically by the Hub.
         /// </summary>
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+        public IDictionary<string, JToken> State { get; private set; }
+#else
         public IDictionary<string, object> State { get; private set; }
+#endif
 
         void IServerMessage.Parse(object data)
         {
@@ -253,13 +292,25 @@ namespace BestHTTP.SignalR.Messages
                 IsHubError = int.Parse(value.ToString()) == 1 ? true : false;
 
             if (dic.TryGetValue("D", out value))
-                AdditionalData = value as IDictionary<string, object>;
+            {
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                    AdditionalData = value as IDictionary<string, JToken>;
+#else
+                    AdditionalData = value as IDictionary<string, object>;
+#endif
+            }
 
             if (dic.TryGetValue("T", out value))
                 StackTrace = value.ToString();
 
             if (dic.TryGetValue("S", out value))
-                State = value as IDictionary<string, object>;
+            {
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                    State = value as IDictionary<string, JToken>;
+#else
+                    State = value as IDictionary<string, object>;
+#endif
+            }
         }
     }
 
@@ -282,9 +333,17 @@ namespace BestHTTP.SignalR.Messages
 
         void IServerMessage.Parse(object data)
         {
-            IDictionary<string, object> dic = data as IDictionary<string, object>;
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                IDictionary<string, JToken> dic = data as IDictionary<string, JToken>;
+#else
+                IDictionary<string, object> dic = data as IDictionary<string, object>;
+#endif
 
-            IDictionary<string, object> P = dic["P"] as IDictionary<string, object>;
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+                IDictionary<string, JToken> P = dic["P"] as IDictionary<string, JToken>;
+#else
+                IDictionary<string, object> P = dic["P"] as IDictionary<string, object>;
+#endif
 
             InvocationId = UInt64.Parse(P["I"].ToString());
             Progress = double.Parse(P["D"].ToString());

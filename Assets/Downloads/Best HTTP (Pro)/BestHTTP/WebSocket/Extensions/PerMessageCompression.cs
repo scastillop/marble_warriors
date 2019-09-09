@@ -13,6 +13,8 @@ namespace BestHTTP.WebSocket.Extensions
     /// </summary>
     public sealed class PerMessageCompression : IExtension
     {
+        public const int MinDataLengthToCompressDefault = 256;
+
         private static readonly byte[] Trailer = new byte[] { 0x00, 0x00, 0xFF, 0xFF };
 
         #region Public Properties
@@ -70,7 +72,7 @@ namespace BestHTTP.WebSocket.Extensions
         #endregion
 
         public PerMessageCompression()
-            :this(CompressionLevel.Default, false, false, ZlibConstants.WindowBitsMax, ZlibConstants.WindowBitsMax, 10)
+            :this(CompressionLevel.Default, false, false, ZlibConstants.WindowBitsMax, ZlibConstants.WindowBitsMax, MinDataLengthToCompressDefault)
         { }
 
         public PerMessageCompression(CompressionLevel level,
@@ -92,7 +94,7 @@ namespace BestHTTP.WebSocket.Extensions
 
         /// <summary>
         /// This will start the permessage-deflate negotiation process.
-        /// <seealso cref="http://tools.ietf.org/html/rfc7692#section-5.1"/>
+        /// <seealso href="http://tools.ietf.org/html/rfc7692#section-5.1"/>
         /// </summary>
         public void AddNegotiation(HTTPRequest request)
         {
@@ -244,7 +246,7 @@ namespace BestHTTP.WebSocket.Extensions
         #region Private Helper Functions
 
         /// <summary>
-        /// A function to comress and return the data parameter with possible context takeover support (reusing the DeflateStream).
+        /// A function to compress and return the data parameter with possible context takeover support (reusing the DeflateStream).
         /// </summary>
         private byte[] Compress(byte[] data)
         {
@@ -285,7 +287,7 @@ namespace BestHTTP.WebSocket.Extensions
         }
 
         /// <summary>
-        /// A function to decompress and return the data paramter with possible context takeover support (reusing the DeflateStream).
+        /// A function to decompress and return the data parameter with possible context takeover support (reusing the DeflateStream).
         /// </summary>
         private byte[] Decompress(byte[] data)
         {

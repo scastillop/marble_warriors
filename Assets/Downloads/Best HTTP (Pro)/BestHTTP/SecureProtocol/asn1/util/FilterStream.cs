@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Asn1.Utilities
 {
     public class FilterStream : Stream
@@ -31,17 +33,22 @@ namespace Org.BouncyCastle.Asn1.Utilities
             get { return s.Position; }
             set { s.Position = value; }
         }
+#if PORTABLE || NETFX_CORE
         protected override void Dispose(bool disposing)
         {
-            try
+            if (disposing)
             {
-                s.Dispose();
+                Org.BouncyCastle.Utilities.Platform.Dispose(s);
             }
-            finally
-            {
-                base.Dispose(disposing);
-            }
+            base.Dispose(disposing);
         }
+#else
+        public override void Close()
+        {
+            Org.BouncyCastle.Utilities.Platform.Dispose(s);
+            base.Close();
+        }
+#endif
         public override void Flush()
         {
             s.Flush();

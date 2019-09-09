@@ -7,15 +7,18 @@ using System.Collections.Generic;
 namespace BestHTTP.SocketIO.Transports
 {
     using BestHTTP.WebSocket;
-    
+    using Extensions;
+
     /// <summary>
     /// A transport implementation that can communicate with a SocketIO server.
     /// </summary>
     internal sealed class WebSocketTransport : ITransport
     {
+        public TransportTypes Type { get { return TransportTypes.WebSocket; } }
         public TransportStates State { get; private set; }
         public SocketManager Manager { get; private set; }
-        public bool IsRequestInProgress { get; private set; }
+        public bool IsRequestInProgress { get { return false; } }
+        public bool IsPollingInProgress { get { return false; } }
         public WebSocket Implementation { get; private set; }
 
         private Packet PacketWithAttachment;
@@ -34,13 +37,22 @@ namespace BestHTTP.SocketIO.Transports
             if (State != TransportStates.Closed)
                 return;
 
-            Uri uri = new Uri(string.Format("{0}?transport=websocket&sid={1}{2}",
-                                             new UriBuilder(HTTPProtocolFactory.IsSecureProtocol(Manager.Uri) ? "wss" : "ws", 
-                                                            Manager.Uri.Host, 
-                                                            Manager.Uri.Port, 
-                                                            Manager.Uri.PathAndQuery).Uri.ToString(),
-                                             Manager.Handshake.Sid,
-                                             !Manager.Options.QueryParamsOnlyForHandshake ? Manager.Options.BuildQueryParams() : string.Empty));
+            Uri uri = null;
+            string baseUrl = new UriBuilder(HTTPProtocolFactory.IsSecureProtocol(Manager.Uri) ? "wss" : "ws",
+                                                            Manager.Uri.Host,
+                                                            Manager.Uri.Port,
+                                                            Manager.Uri.GetRequestPathAndQueryURL()).Uri.ToString();
+            string format = "{0}?EIO={1}&transport=websocket{3}";
+            if (Manager.Handshake != null)
+                format += "&sid={2}";
+
+            bool sendAdditionalQueryParams = !Manager.Options.QueryParamsOnlyForHandshake || (Manager.Options.QueryParamsOnlyForHandshake && Manager.Handshake == null);
+
+            uri = new Uri(string.Format(format,
+                                        baseUrl,
+                                        SocketManager.MinProtocolVersion,
+                                        Manager.Handshake != null ? Manager.Handshake.Sid : string.Empty,
+                                        sendAdditionalQueryParams ? Manager.Options.BuildQueryParams() : string.Empty));
 
             Implementation = new WebSocket(uri);
 
@@ -95,8 +107,9 @@ namespace BestHTTP.SocketIO.Transports
 
             State = TransportStates.Opening;
 
-            // Send Ping Probe
-            Send(new Packet(TransportEventTypes.Ping, SocketIOEventTypes.Unknown, "/", "probe"));
+            // Send a Probe packet to test the transport. If we receive back a pong with the same payload we can upgrade
+            if (Manager.UpgradingTransport == this)
+                Send(new Packet(TransportEventTypes.Ping, SocketIOEventTypes.Unknown, "/", "probe"));
         }
 
         /// <summary>
@@ -110,9 +123,25 @@ namespace BestHTTP.SocketIO.Transports
             if (HTTPManager.Logger.Level <= BestHTTP.Logger.Loglevels.All)
                 HTTPManager.Logger.Verbose("WebSocketTransport", "OnMessage: " + message);
 
+            Packet packet = null;
             try
             {
-                Packet packet = new Packet(message);
+                packet = new Packet(message);
+            }
+            catch (Exception ex)
+            {
+                HTTPManager.Logger.Exception("WebSocketTransport", "OnMessage Packet parsing", ex);
+            }
+
+            if (packet == null)
+            {
+                HTTPManager.Logger.Error("WebSocketTransport", "Message parsing failed. Message: " + message);
+                return;
+            }
+
+            try
+            {
+
                 if (packet.AttachmentCount == 0)
                     OnPacket(packet);
                 else
@@ -120,7 +149,7 @@ namespace BestHTTP.SocketIO.Transports
             }
             catch (Exception ex)
             {
-                HTTPManager.Logger.Exception("WebSocketTransport", "OnMessage", ex);
+                HTTPManager.Logger.Exception("WebSocketTransport", "OnMessage OnPacket", ex);
             }
         }
 
@@ -199,7 +228,7 @@ namespace BestHTTP.SocketIO.Transports
                         errorStr = "Request Aborted!";
                         break;
 
-                    // Ceonnecting to the server is timed out.
+                    // Connecting to the server is timed out.
                     case HTTPRequestStates.ConnectionTimedOut:
                         errorStr = "Connection Timed Out!";
                         break;
@@ -212,9 +241,10 @@ namespace BestHTTP.SocketIO.Transports
 #endif
             }
 
-            HTTPManager.Logger.Error("WebSocketTransport", "OnError: " + errorStr);
-
-            (Manager as IManager).OnTransportError(this, errorStr);
+            if (Manager.UpgradingTransport != this)
+                (Manager as IManager).OnTransportError(this, errorStr);
+            else
+                Manager.UpgradingTransport = null;
         }
 
         /// <summary>
@@ -229,7 +259,10 @@ namespace BestHTTP.SocketIO.Transports
 
             Close();
 
-            (Manager as IManager).TryToReconnect();
+            if (Manager.UpgradingTransport != this)
+                (Manager as IManager).TryToReconnect();
+            else
+                Manager.UpgradingTransport = null;
         }
 
 #endregion
@@ -304,34 +337,26 @@ namespace BestHTTP.SocketIO.Transports
         {
             switch (packet.TransportEvent)
             {
-                case TransportEventTypes.Message:
-                case TransportEventTypes.Noop:
-                    if (this.State == TransportStates.Opening)
-                    {
-                        // This transport are no open
+                case TransportEventTypes.Open:
+                    if (this.State != TransportStates.Opening)
+                        HTTPManager.Logger.Warning("WebSocketTransport", "Received 'Open' packet while state is '" + State.ToString() + "'");
+                    else
                         State = TransportStates.Open;
-
-                        // Inform our manager that we are ready to rock
-                        if (!(Manager as IManager).OnTransportConnected(this))
-                            return;
-                    }
-
                     goto default;
 
                 case TransportEventTypes.Pong:
-                    // Answer for a Ping Probe. 
+                    // Answer for a Ping Probe.
                     if (packet.Payload == "probe")
                     {
-                        HTTPManager.Logger.Information("WebSocketTransport", "\"probe\" packet received, sending Upgrade packet");
-
-                        // We will send an Upgrade("5") packet.
-                        Send(new Packet(TransportEventTypes.Upgrade, SocketIOEventTypes.Unknown, "/", string.Empty));
+                        State = TransportStates.Open;
+                        (Manager as IManager).OnTransportProbed(this);
                     }
 
                     goto default;
 
                 default:
-                    (Manager as IManager).OnPacket(packet);
+                    if (Manager.UpgradingTransport != this)
+                        (Manager as IManager).OnPacket(packet);
                     break;
             }
         }

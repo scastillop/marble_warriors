@@ -2,12 +2,7 @@
 #if !BESTHTTP_DISABLE_SERVERSENT_EVENTS
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
-using BestHTTP;
-using BestHTTP.SignalR;
 using BestHTTP.ServerSentEvents;
 using BestHTTP.SignalR.Messages;
 
@@ -64,7 +59,7 @@ namespace BestHTTP.SignalR.Transports
             RequestTypes requestType = this.State == TransportStates.Reconnecting ? RequestTypes.Reconnect : RequestTypes.Connect;
 
             Uri uri = Connection.BuildUri(requestType, this);
-            
+
             EventSource = new EventSource(uri);
 
             EventSource.OnOpen += OnEventSourceOpen;

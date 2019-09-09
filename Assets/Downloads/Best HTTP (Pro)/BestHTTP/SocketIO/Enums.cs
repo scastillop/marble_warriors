@@ -25,7 +25,7 @@ namespace BestHTTP.SocketIO
         Unknown = -1,
 
         /// <summary>
-        /// Connect to a napespace, or we connected to a namespace
+        /// Connect to a namespace, or we connected to a namespace
         /// </summary>
         Connect = 0,
 
@@ -40,7 +40,7 @@ namespace BestHTTP.SocketIO
         Event = 2,
 
         /// <summary>
-        /// Acknowledgement of an event.
+        /// Acknowledgment of an event.
         /// </summary>
         Ack = 3,
 
@@ -55,7 +55,7 @@ namespace BestHTTP.SocketIO
         BinaryEvent = 5,
 
         /// <summary>
-        /// Acknowledgement of a binary event.
+        /// Acknowledgment of a binary event.
         /// </summary>
         BinaryAck = 6
     }

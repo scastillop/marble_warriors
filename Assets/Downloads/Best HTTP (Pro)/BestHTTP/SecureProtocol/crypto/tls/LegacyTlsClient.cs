@@ -5,7 +5,7 @@ using System;
 namespace Org.BouncyCastle.Crypto.Tls
 {
 	/// <summary>
-	/// A temporary class to use LegacyTlsAuthentication 
+	/// A temporary class to use LegacyTlsAuthentication
 	/// </summary>
 	public sealed class LegacyTlsClient : DefaultTlsClient
 	{

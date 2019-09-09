@@ -60,7 +60,7 @@ namespace Org.BouncyCastle.Math.EC.Multiplier
 
                     zeroes -= scale;
 
-                    //System.Diagnostics.Debug.WriteLine("Optimized: 2^" + scale + " * " + n + " = " + i1 + " + " + i2);
+                    //Console.WriteLine("Optimized: 2^" + scale + " * " + n + " = " + i1 + " + " + i2);
                 }
                 else
                 {

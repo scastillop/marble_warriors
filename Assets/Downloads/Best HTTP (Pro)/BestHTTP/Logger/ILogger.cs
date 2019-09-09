@@ -8,7 +8,7 @@ namespace BestHTTP.Logger
     /// <summary>
     /// Available logging levels.
     /// </summary>
-    public enum Loglevels
+    public enum Loglevels : byte
     {
         /// <summary>
         /// All message will be logged.
@@ -36,7 +36,7 @@ namespace BestHTTP.Logger
         Exception,
 
         /// <summary>
-        /// No logging will be occur.
+        /// No logging will occur.
         /// </summary>
         None
     }

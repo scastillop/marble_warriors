@@ -58,7 +58,7 @@ namespace BestHTTP.SignalR.Hubs
         private Dictionary<UInt64, ClientMessage> SentMessages = new Dictionary<ulong, ClientMessage>();
 
         /// <summary>
-        /// Methodname -> callback delegete mapping. This table stores the server callable functions.
+        /// Methodname -> callback delegate mapping. This table stores the server callable functions.
         /// </summary>
         private Dictionary<string, OnMethodCallCallbackDelegate> MethodTable = new Dictionary<string, OnMethodCallCallbackDelegate>();
 
@@ -135,7 +135,7 @@ namespace BestHTTP.SignalR.Hubs
         /// <summary>
         /// Orders the server to call a method with the given arguments.
         /// The onResult callback will be called when the server successfully called the function.
-        /// The onProgress callback called multiple times when the method is a long runnning function and reports back its progress.
+        /// The onProgress callback called multiple times when the method is a long running function and reports back its progress.
         /// </summary>
         /// <returns>True if the plugin was able to send out the message</returns>
         public bool Call(string method, OnMethodResultDelegate onResult, OnMethodProgressDelegate onProgress, params object[] args)
@@ -147,7 +147,7 @@ namespace BestHTTP.SignalR.Hubs
         /// Orders the server to call a method with the given arguments.
         /// The onResult callback will be called when the server successfully called the function.
         /// The onResultError will be called when the server can't call the function, or when the function throws an exception.
-        /// The onProgress callback called multiple times when the method is a long runnning function and reports back its progress.
+        /// The onProgress callback called multiple times when the method is a long running function and reports back its progress.
         /// </summary>
         /// <returns>True if the plugin was able to send out the message</returns>
         public bool Call(string method, OnMethodResultDelegate onResult, OnMethodFailedDelegate onResultError, OnMethodProgressDelegate onProgress, params object[] args)
@@ -157,7 +157,7 @@ namespace BestHTTP.SignalR.Hubs
             lock (thisHub.Connection.SyncRoot)
             {
                 // Start over the counter if we are reached the max value if the UInt64 type.
-                // While we are using this property only here, we don't want to make it static to avoid another thread syncronization, neither we want to make it a Hub-instance field to achieve better deuggability.
+                // While we are using this property only here, we don't want to make it static to avoid another thread synchronization, neither we want to make it a Hub-instance field to achieve better deuggability.
                 thisHub.Connection.ClientMessageCounter %= UInt64.MaxValue;
 
                 // Create and send the client message
@@ -177,7 +177,7 @@ namespace BestHTTP.SignalR.Hubs
             {
                 if (!thisHub.Connection.SendJson(BuildMessage(msg)))
                     return false;
-                
+
                 SentMessages.Add(msg.CallIdx, msg);
             }
 
@@ -193,7 +193,7 @@ namespace BestHTTP.SignalR.Hubs
         }
 
         /// <summary>
-        /// Called on the manager's close. 
+        /// Called on the manager's close.
         /// </summary>
         void IHub.Close()
         {
@@ -232,7 +232,7 @@ namespace BestHTTP.SignalR.Hubs
                     HTTPManager.Logger.Exception("Hub - " + this.Name, "IHub.OnMethod - callback", ex);
                 }
             }
-            else
+            else if (OnMethodCall == null)
                 HTTPManager.Logger.Warning("Hub - " + this.Name, string.Format("[Client] {0}.{1} (args: {2})", this.Name, msg.Method, msg.Arguments.Length));
         }
 
@@ -320,7 +320,11 @@ namespace BestHTTP.SignalR.Hubs
         /// <summary>
         /// Merges the current and the new states.
         /// </summary>
+#if BESTHTTP_SIGNALR_WITH_JSONDOTNET
+        private void MergeState(IDictionary<string, Newtonsoft.Json.Linq.JToken> state)
+#else
         private void MergeState(IDictionary<string, object> state)
+#endif
         {
             if (state != null && state.Count > 0)
                 foreach (var kvp in state)

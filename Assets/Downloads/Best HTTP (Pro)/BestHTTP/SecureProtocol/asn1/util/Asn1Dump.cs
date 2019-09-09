@@ -11,7 +11,7 @@ namespace Org.BouncyCastle.Asn1.Utilities
 {
     public sealed class Asn1Dump
     {
-        private static readonly string NewLine = Platform.NewLine;
+        private static readonly string NewLine = Org.BouncyCastle.Utilities.Platform.NewLine;
 
         private Asn1Dump()
         {
@@ -198,6 +198,14 @@ namespace Org.BouncyCastle.Asn1.Utilities
             else if (obj is DerT61String)
             {
                 buf.Append(indent + "T61String(" + ((DerT61String)obj).GetString() + ") " + NewLine);
+            }
+            else if (obj is DerGraphicString)
+            {
+                buf.Append(indent + "GraphicString(" + ((DerGraphicString)obj).GetString() + ") " + NewLine);
+            }
+            else if (obj is DerVideotexString)
+            {
+                buf.Append(indent + "VideotexString(" + ((DerVideotexString)obj).GetString() + ") " + NewLine);
             }
             else if (obj is DerUtcTime)
             {

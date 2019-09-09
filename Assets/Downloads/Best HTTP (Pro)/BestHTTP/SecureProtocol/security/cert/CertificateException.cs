@@ -4,7 +4,7 @@ using System;
 
 namespace Org.BouncyCastle.Security.Certificates
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE)
+#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE || PORTABLE)
     [Serializable]
 #endif
     public class CertificateException : GeneralSecurityException

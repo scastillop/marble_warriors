@@ -35,25 +35,20 @@ namespace Org.BouncyCastle.Asn1
 				offset++;
 				enc = GetObjFromVector(vector, offset);
 			}
-			if (!(enc is DerTaggedObject))
+			if (!(enc is Asn1TaggedObject))
 			{
-				dataValueDescriptor = (Asn1Object) enc;
+				dataValueDescriptor = enc;
 				offset++;
 				enc = GetObjFromVector(vector, offset);
 			}
-			if (!(enc is DerTaggedObject))
-			{
-				throw new InvalidOperationException(
-					"No tagged object found in vector. Structure doesn't seem to be of type External");
-			}
 
-			if (vector.Count != offset + 1)
+            if (vector.Count != offset + 1)
 				throw new ArgumentException("input vector too large", "vector");
 
-			if (!(enc is DerTaggedObject))
+            if (!(enc is Asn1TaggedObject))
 				throw new ArgumentException("No tagged object found in vector. Structure doesn't seem to be of type External", "vector");
 
-			DerTaggedObject obj = (DerTaggedObject)enc;
+            Asn1TaggedObject obj = (Asn1TaggedObject)enc;
 
 			// Use property accessor to include check on value
 			Encoding = obj.TagNo;
@@ -135,9 +130,9 @@ namespace Org.BouncyCastle.Asn1
 			if (other == null)
 				return false;
 
-			return Platform.Equals(directReference, other.directReference)
-				&& Platform.Equals(indirectReference, other.indirectReference)
-				&& Platform.Equals(dataValueDescriptor, other.dataValueDescriptor)
+			return Org.BouncyCastle.Utilities.Platform.Equals(directReference, other.directReference)
+				&& Org.BouncyCastle.Utilities.Platform.Equals(indirectReference, other.indirectReference)
+				&& Org.BouncyCastle.Utilities.Platform.Equals(dataValueDescriptor, other.dataValueDescriptor)
 				&& externalContent.Equals(other.externalContent);
 		}
 

@@ -29,7 +29,7 @@ namespace Org.BouncyCastle.Asn1
                 return (DerUniversalString)obj;
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + obj.GetType().Name);
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         /**

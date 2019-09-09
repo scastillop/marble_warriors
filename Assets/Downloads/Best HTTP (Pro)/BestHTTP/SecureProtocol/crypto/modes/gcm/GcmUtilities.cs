@@ -48,6 +48,13 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             return tmp;
         }
 
+        internal static ulong[] OneAsUlongs()
+        {
+            ulong[] tmp = new ulong[2];
+            tmp[0] = 1UL << 63;
+            return tmp;
+        }
+
         internal static byte[] AsBytes(uint[] x)
         {
             return Pack.UInt32_To_BE(x);
@@ -56,6 +63,18 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
         internal static void AsBytes(uint[] x, byte[] z)
         {
             Pack.UInt32_To_BE(x, z, 0);
+        }
+
+        internal static byte[] AsBytes(ulong[] x)
+        {
+            byte[] z = new byte[16];
+            Pack.UInt64_To_BE(x, z, 0);
+            return z;
+        }
+
+        internal static void AsBytes(ulong[] x, byte[] z)
+        {
+            Pack.UInt64_To_BE(x, z, 0);
         }
 
         internal static uint[] AsUints(byte[] bs)
@@ -70,6 +89,18 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             Pack.BE_To_UInt32(bs, 0, output);
         }
 
+        internal static ulong[] AsUlongs(byte[] x)
+        {
+            ulong[] z = new ulong[2];
+            Pack.BE_To_UInt64(x, 0, z);
+            return z;
+        }
+
+        public static void AsUlongs(byte[] x, ulong[] z)
+        {
+            Pack.BE_To_UInt64(x, 0, z);
+        }
+
         internal static void Multiply(byte[] x, byte[] y)
         {
             uint[] t1 = GcmUtilities.AsUints(x);
@@ -82,7 +113,7 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
         {
             uint r00 = x[0], r01 = x[1], r02 = x[2], r03 = x[3];
             uint r10 = 0, r11 = 0, r12 = 0, r13 = 0;
-        
+
             for (int i = 0; i < 4; ++i)
             {
                 int bits = (int)y[i];
@@ -95,9 +126,9 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
                     r13 ^= (r03 & m1);
 
                     uint m2 = (uint)((int)(r03 << 31) >> 8);
-                    r03 = (r03 >> 1) | (r02 << 63);
-                    r02 = (r02 >> 1) | (r01 << 63);
-                    r01 = (r01 >> 1) | (r00 << 63);
+                    r03 = (r03 >> 1) | (r02 << 31);
+                    r02 = (r02 >> 1) | (r01 << 31);
+                    r01 = (r01 >> 1) | (r00 << 31);
                     r00 = (r00 >> 1) ^ (m2 & E1);
                 }
             }
@@ -121,7 +152,7 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
                     r10 ^= (r00 & m1);
                     r11 ^= (r01 & m1);
 
-                    ulong m2 = (r01 << 63) >> 8;
+                    ulong m2 = (ulong)((long)(r01 << 63) >> 8);
                     r01 = (r01 >> 1) | (r00 << 63);
                     r00 = (r00 >> 1) ^ (m2 & E1L);
                 }
@@ -225,6 +256,7 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             return b << nInv;
         }
 
+#if true //!ENABLE_IL2CPP || UNITY_WEBGL
         internal static void Xor(byte[] x, byte[] y)
         {
             int i = 0;
@@ -237,7 +269,46 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             }
             while (i < 16);
         }
+#else
+        internal static unsafe void Xor(byte[] x, byte[] y)
+        {
+            //int i = 0;
+            fixed (byte* px = x)
+            fixed (byte* py = y)
+            {
+                //do
+                //{
+                //    px[i] ^= py[i]; ++i;
+                //    px[i] ^= py[i]; ++i;
+                //    px[i] ^= py[i]; ++i;
+                //    px[i] ^= py[i]; ++i;
+                //}
+                //while (i < 16);
 
+                px[0] ^= py[0];
+                px[1] ^= py[1];
+                px[2] ^= py[2];
+                px[3] ^= py[3];
+
+                px[4] ^= py[4];
+                px[5] ^= py[5];
+                px[6] ^= py[6];
+                px[7] ^= py[7];
+
+                px[8] ^= py[8];
+                px[9] ^= py[9];
+                px[10] ^= py[10];
+                px[11] ^= py[11];
+
+                px[12] ^= py[12];
+                px[13] ^= py[13];
+                px[14] ^= py[14];
+                px[15] ^= py[15];
+            }
+        }
+#endif
+
+#if true //!ENABLE_IL2CPP || UNITY_WEBGL
         internal static void Xor(byte[] x, byte[] y, int yOff, int yLen)
         {
             while (--yLen >= 0)
@@ -245,6 +316,18 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
                 x[yLen] ^= y[yOff + yLen];
             }
         }
+#else
+
+        internal static unsafe void Xor(byte[] x, byte[] y, int yOff, int yLen)
+        {
+            fixed (byte* px = x)
+            fixed(byte* py = y)
+                while (--yLen >= 0)
+                {
+                    px[yLen] ^= py[yOff + yLen];
+                }
+        }
+#endif
 
         internal static void Xor(byte[] x, byte[] y, byte[] z)
         {
@@ -259,6 +342,7 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             while (i < 16);
         }
 
+#if true //!ENABLE_IL2CPP || UNITY_WEBGL
         internal static void Xor(uint[] x, uint[] y)
         {
             x[0] ^= y[0];
@@ -266,6 +350,19 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             x[2] ^= y[2];
             x[3] ^= y[3];
         }
+#else
+        internal static unsafe void Xor(uint[] x, uint[] y)
+        {
+            fixed (uint* px = x)
+            fixed (uint* py = y)
+            {
+                px[0] ^= py[0];
+                px[1] ^= py[1];
+                px[2] ^= py[2];
+                px[3] ^= py[3];
+            }
+        }
+#endif
 
         internal static void Xor(uint[] x, uint[] y, uint[] z)
         {
@@ -273,6 +370,18 @@ namespace Org.BouncyCastle.Crypto.Modes.Gcm
             z[1] = x[1] ^ y[1];
             z[2] = x[2] ^ y[2];
             z[3] = x[3] ^ y[3];
+        }
+
+        internal static void Xor(ulong[] x, ulong[] y)
+        {
+            x[0] ^= y[0];
+            x[1] ^= y[1];
+        }
+
+        internal static void Xor(ulong[] x, ulong[] y, ulong[] z)
+        {
+            z[0] = x[0] ^ y[0];
+            z[1] = x[1] ^ y[1];
         }
     }
 }

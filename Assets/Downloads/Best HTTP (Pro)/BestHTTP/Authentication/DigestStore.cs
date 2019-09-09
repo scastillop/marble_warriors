@@ -6,10 +6,10 @@ namespace BestHTTP.Authentication
     /// <summary>
     /// Stores and manages already received digest infos.
     /// </summary>
-    internal static class DigestStore
+    public static class DigestStore
     {
         private static Dictionary<string, Digest> Digests = new Dictionary<string, Digest>();
-        
+
         private static object Locker = new object();
 
         /// <summary>

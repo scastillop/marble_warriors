@@ -12,6 +12,8 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
         private const ulong M27 = ulong.MaxValue >> 37;
         private const ulong M57 = ulong.MaxValue >> 7;
 
+        private static readonly ulong[] ROOT_Z = new ulong[]{ 0x0C30C30C30C30808UL, 0x30C30C30C30C30C3UL, 0x820820820820830CUL, 0x0820820820820820UL, 0x2082082UL };
+
         public static void Add(ulong[] x, ulong[] y, ulong[] z)
         {
             z[0] = x[0] ^ y[0];
@@ -48,6 +50,41 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
             ulong[] z = Nat320.FromBigInteger64(x);
             Reduce37(z, 0);
             return z;
+        }
+
+        public static void Invert(ulong[] x, ulong[] z)
+        {
+            if (Nat320.IsZero64(x))
+                throw new InvalidOperationException();
+
+            // Itoh-Tsujii inversion
+
+            ulong[] t0 = Nat320.Create64();
+            ulong[] t1 = Nat320.Create64();
+
+            Square(x, t0);
+            Multiply(t0, x, t0);
+            SquareN(t0, 2, t1);
+            Multiply(t1, t0, t1);
+            SquareN(t1, 4, t0);
+            Multiply(t0, t1, t0);
+            SquareN(t0, 8, t1);
+            Multiply(t1, t0, t1);
+            Square(t1, t1);
+            Multiply(t1, x, t1);
+            SquareN(t1, 17, t0);
+            Multiply(t0, t1, t0);
+            Square(t0, t0);
+            Multiply(t0, x, t0);
+            SquareN(t0, 35, t1);
+            Multiply(t1, t0, t1);
+            SquareN(t1, 70, t0);
+            Multiply(t0, t1, t0);
+            Square(t0, t0);
+            Multiply(t0, x, t0);
+            SquareN(t0, 141, t1);
+            Multiply(t1, t0, t1);
+            Square(t1, z);
         }
 
         public static void Multiply(ulong[] x, ulong[] y, ulong[] z)
@@ -96,6 +133,30 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
             z[zOff + 4]  = z4 & M27;
         }
 
+        public static void Sqrt(ulong[] x, ulong[] z)
+        {
+            ulong[] odd = Nat320.Create64();
+
+            ulong u0, u1;
+            u0 = Interleave.Unshuffle(x[0]); u1 = Interleave.Unshuffle(x[1]);
+            ulong e0 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
+            odd[0]   = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
+
+            u0 = Interleave.Unshuffle(x[2]); u1 = Interleave.Unshuffle(x[3]);
+            ulong e1 = (u0 & 0x00000000FFFFFFFFUL) | (u1 << 32);
+            odd[1]   = (u0 >> 32) | (u1 & 0xFFFFFFFF00000000UL);
+
+            u0 = Interleave.Unshuffle(x[4]);
+            ulong e2 = (u0 & 0x00000000FFFFFFFFUL);
+            odd[2]   = (u0 >> 32);
+
+            Multiply(odd, ROOT_Z, z);
+
+            z[0] ^= e0;
+            z[1] ^= e1;
+            z[2] ^= e2;
+        }
+
         public static void Square(ulong[] x, ulong[] z)
         {
             ulong[] tt = Nat.Create64(9);
@@ -123,6 +184,12 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
                 ImplSquare(z, tt);
                 Reduce(tt, z);
             }
+        }
+
+        public static uint Trace(ulong[] x)
+        {
+            // Non-zero-trace bits: 0, 271
+            return (uint)(x[0] ^ (x[4] >> 15)) & 1U;
         }
 
         protected static void ImplCompactExt(ulong[] zz)
@@ -294,7 +361,7 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
             Debug.Assert(y >> 57 == 0);
 
             ulong[] u = new ulong[8];
-    //      u[0] = 0;
+            //u[0] = 0;
             u[1] = y;
             u[2] = u[1] << 1;
             u[3] = u[2] ^  y;
@@ -308,7 +375,7 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
             int k = 48;
             do
             {
-                j = (uint)(x >> k);
+                j  = (uint)(x >> k);
                 g  = u[j & 7]
                    ^ u[(j >> 3) & 7] << 3
                    ^ u[(j >> 6) & 7] << 6;

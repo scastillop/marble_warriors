@@ -1,6 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 using System;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Asn1
 {
     /**
@@ -25,7 +27,7 @@ namespace Org.BouncyCastle.Asn1
                 return (DerBmpString)obj;
             }
 
-			throw new ArgumentException("illegal object in GetInstance: " + obj.GetType().Name);
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         /**

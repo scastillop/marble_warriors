@@ -5,7 +5,7 @@ using UnityEngine;
 public class ButtonChar : MonoBehaviour
 {
     public GameObject character;
-    public int characterNumber;
+    public bool isActive;
     // Start is called before the first frame update
     void Start()
     {

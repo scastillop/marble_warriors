@@ -83,6 +83,7 @@ namespace Org.BouncyCastle.Crypto.Tls
                 try
                 {
                     this.mDHAgreePublicKey = TlsDHUtilities.ValidateDHPublicKey((DHPublicKeyParameters)this.mServerPublicKey);
+                    this.mDHParameters = ValidateDHParameters(mDHAgreePublicKey.Parameters);
                 }
                 catch (InvalidCastException e)
                 {
@@ -173,8 +174,12 @@ namespace Org.BouncyCastle.Crypto.Tls
 
         public override void ProcessClientCertificate(Certificate clientCertificate)
         {
-            // TODO Extract the public key
-            // TODO If the certificate is 'fixed', take the public key as dhAgreeClientPublicKey
+            // TODO Extract the public key and validate
+
+            /*
+             * TODO If the certificate is 'fixed', take the public key as dhAgreePublicKey and check
+             * that the parameters match the server's (see 'areCompatibleParameters').
+             */
         }
 
         public override void ProcessClientKeyExchange(Stream input)
@@ -203,6 +208,19 @@ namespace Org.BouncyCastle.Crypto.Tls
             }
 
             throw new TlsFatalAlert(AlertDescription.internal_error);
+        }
+
+        protected virtual int MinimumPrimeBits
+        {
+            get { return 1024; }
+        }
+
+        protected virtual DHParameters ValidateDHParameters(DHParameters parameters)
+        {
+            if (parameters.P.BitLength < MinimumPrimeBits)
+                throw new TlsFatalAlert(AlertDescription.insufficient_security);
+
+            return TlsDHUtilities.ValidateDHParameters(parameters);
         }
     }
 }

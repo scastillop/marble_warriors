@@ -58,7 +58,7 @@ namespace BestHTTP.SocketIO.Events
             if (CallbackArray == null || CallbackArray.Length < Callbacks.Count)
                 Array.Resize(ref CallbackArray, Callbacks.Count);
 
-            // Copy the callback delegetes to an array, becouse in one of the callbacks we can modify the list(by calling On/Once/Off in an event handler)
+            // Copy the callback delegates to an array, because in one of the callbacks we can modify the list(by calling On/Once/Off in an event handler)
             // This way we can prevent some strange bug
             Callbacks.CopyTo(CallbackArray);
 
@@ -68,7 +68,9 @@ namespace BestHTTP.SocketIO.Events
                 try
                 {
                     // Call the delegate.
-                    CallbackArray[i](socket, packet, args);
+                    SocketIOCallback callback = CallbackArray[i];
+                    if (callback!= null)
+                        callback(socket, packet, args);
                 }
                 catch (Exception ex)
                 {

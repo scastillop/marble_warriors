@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using BestHTTP.Extensions;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
     using System.Runtime.InteropServices;
@@ -14,6 +15,18 @@ using System.IO;
 
 namespace BestHTTP.WebSocket
 {
+    /// <summary>
+    /// States of the underlying browser's WebSocket implementation's state.
+    /// </summary>
+    public enum WebSocketStates : byte
+    {
+        Connecting = 0,
+        Open = 1,
+        Closing = 2,
+        Closed = 3,
+        Unknown
+    };
+
     public delegate void OnWebSocketOpenDelegate(WebSocket webSocket);
     public delegate void OnWebSocketMessageDelegate(WebSocket webSocket, string message);
     public delegate void OnWebSocketBinaryDelegate(WebSocket webSocket, byte[] data);
@@ -29,22 +42,17 @@ namespace BestHTTP.WebSocket
     delegate void OnWebGLWebSocketBinaryDelegate(uint id, IntPtr pBuffer, int length);
     delegate void OnWebGLWebSocketErrorDelegate(uint id, string error);
     delegate void OnWebGLWebSocketCloseDelegate(uint id, int code, string reason);
-
-    /// <summary>
-    /// States of the underlying browser's WebSocket implementation's state. It's available only in WebGL builds.
-    /// </summary>
-    public enum WebSocketStates : byte
-    {
-        Connecting = 0,
-        Open       = 1,
-        Closing    = 2,
-        Closed     = 3
-    };
 #endif
 
     public sealed class WebSocket
     {
 #region Properties
+
+#if !UNITY_WEBGL || UNITY_EDITOR
+        public WebSocketStates State { get; private set; }
+#else
+        public WebSocketStates State { get { return ImplementationId != 0 ? WS_GetState(ImplementationId) : WebSocketStates.Unknown; } }
+#endif
 
         /// <summary>
         /// The connection to the WebSocket server is open.
@@ -61,6 +69,18 @@ namespace BestHTTP.WebSocket
             }
         }
 
+        public int BufferedAmount
+        {
+            get
+            {
+#if (!UNITY_WEBGL || UNITY_EDITOR)
+                return webSocket.BufferedAmount;
+#else
+                return WS_GetBufferedAmount(ImplementationId);
+#endif
+            }
+        }
+
 #if (!UNITY_WEBGL || UNITY_EDITOR)
         /// <summary>
         /// Set to true to start a new thread to send Pings to the WebSocket server
@@ -73,6 +93,12 @@ namespace BestHTTP.WebSocket
         public int PingFrequency { get; set; }
 
         /// <summary>
+        /// If StartPingThread set to true, the plugin will close the connection and emit an OnError/OnErrorDesc event if no
+        /// message is received from the server in the given time. Its default value is 10 sec.
+        /// </summary>
+        public TimeSpan CloseAfterNoMesssage { get; set; }
+
+        /// <summary>
         /// The internal HTTPRequest object.
         /// </summary>
         public HTTPRequest InternalRequest { get; private set; }
@@ -81,10 +107,16 @@ namespace BestHTTP.WebSocket
         /// IExtension implementations the plugin will negotiate with the server to use.
         /// </summary>
         public IExtension[] Extensions { get; private set; }
+
+        /// <summary>
+        /// Latency calculated from the ping-pong message round-trip times.
+        /// </summary>
+        public int Latency { get { return webSocket.Latency; } }
+
 #endif
 
         /// <summary>
-        /// Called when the connection to the WebSocket server is estabilished.
+        /// Called when the connection to the WebSocket server is established.
         /// </summary>
         public OnWebSocketOpenDelegate OnOpen;
 
@@ -115,7 +147,7 @@ namespace BestHTTP.WebSocket
 
 #if (!UNITY_WEBGL || UNITY_EDITOR)
         /// <summary>
-        /// Called when an incomplete frame received. No attemp will be made to reassemble these fragments internally, and no reference are stored after this event to this frame.
+        /// Called when an incomplete frame received. No attempt will be made to reassemble these fragments internally, and no reference are stored after this event to this frame.
         /// </summary>
         public OnWebSocketIncompleteFrameDelegate OnIncompleteFrame;
 #endif
@@ -154,13 +186,13 @@ namespace BestHTTP.WebSocket
         public WebSocket(Uri uri)
             :this(uri, string.Empty, string.Empty)
         {
-#if (!UNITY_WEBGL || UNITY_EDITOR)
+#if (!UNITY_WEBGL || UNITY_EDITOR) && !BESTHTTP_DISABLE_GZIP
             this.Extensions = new IExtension[] { new PerMessageCompression(/*compression level: */           Decompression.Zlib.CompressionLevel.Default,
                                                                            /*clientNoContextTakeover: */     false,
                                                                            /*serverNoContextTakeover: */     false,
                                                                            /*clientMaxWindowBits: */         Decompression.Zlib.ZlibConstants.WindowBitsMax,
                                                                            /*desiredServerMaxWindowBits: */  Decompression.Zlib.ZlibConstants.WindowBitsMax,
-                                                                           /*minDatalengthToCompress: */     5) };
+                                                                           /*minDatalengthToCompress: */     PerMessageCompression.MinDataLengthToCompressDefault) };
 #endif
         }
 
@@ -171,22 +203,25 @@ namespace BestHTTP.WebSocket
         /// <param name="origin">Servers that are not intended to process input from any web page but only for certain sites SHOULD verify the |Origin| field is an origin they expect.
         /// If the origin indicated is unacceptable to the server, then it SHOULD respond to the WebSocket handshake with a reply containing HTTP 403 Forbidden status code.</param>
         /// <param name="protocol">The application-level protocol that the client want to use(eg. "chat", "leaderboard", etc.). Can be null or empty string if not used.</param>
+        /// <param name="extensions">Optional IExtensions implementations</param>
         public WebSocket(Uri uri, string origin, string protocol
-#if (!UNITY_WEBGL || UNITY_EDITOR)
+#if !UNITY_WEBGL || UNITY_EDITOR
             , params IExtension[] extensions
 #endif
             )
 
         {
-#if (!UNITY_WEBGL || UNITY_EDITOR)
+            string scheme = HTTPProtocolFactory.IsSecureProtocol(uri) ? "wss" : "ws";
+            int port = uri.Port != -1 ? uri.Port : (scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? 443 : 80);
+
+            // Somehow if i use the UriBuilder it's not the same as if the uri is constructed from a string...
+            //uri = new UriBuilder(uri.Scheme, uri.Host, uri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? 443 : 80, uri.PathAndQuery).Uri;
+            uri = new Uri(scheme + "://" + uri.Host + ":" + port + uri.GetRequestPathAndQueryURL());
+
+#if !UNITY_WEBGL || UNITY_EDITOR
             // Set up some default values.
             this.PingFrequency = 1000;
-
-            // If there no port set in the uri, we must set it now.
-            if (uri.Port == -1)
-                // Somehow if i use the UriBuilder it's not the same as if the uri is constructed from a string...
-                //uri = new UriBuilder(uri.Scheme, uri.Host, uri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? 443 : 80, uri.PathAndQuery).Uri;
-                uri = new Uri(uri.Scheme + "://" + uri.Host + ":" + (uri.Scheme.Equals("wss", StringComparison.OrdinalIgnoreCase) ? "443" : "80") + uri.PathAndQuery);
+            this.CloseAfterNoMesssage = TimeSpan.FromSeconds(10);
 
             InternalRequest = new HTTPRequest(uri, OnInternalRequestCallback);
 
@@ -196,13 +231,16 @@ namespace BestHTTP.WebSocket
             //http://tools.ietf.org/html/rfc6455#section-4
 
             //The request MUST contain a |Host| header field whose value contains /host/ plus optionally ":" followed by /port/ (when not using the default port).
-            InternalRequest.SetHeader("Host", uri.Host + ":" + uri.Port);
+            if ((!HTTPProtocolFactory.IsSecureProtocol(uri) && uri.Port != 80) && (HTTPProtocolFactory.IsSecureProtocol(uri) && uri.Port != 443))
+                InternalRequest.SetHeader("Host", uri.Host + ":" + uri.Port);
+            else
+                InternalRequest.SetHeader("Host", uri.Host);
 
             // The request MUST contain an |Upgrade| header field whose value MUST include the "websocket" keyword.
             InternalRequest.SetHeader("Upgrade", "websocket");
 
             // The request MUST contain a |Connection| header field whose value MUST include the "Upgrade" token.
-            InternalRequest.SetHeader("Connection", "keep-alive, Upgrade");
+            InternalRequest.SetHeader("Connection", "Upgrade");
 
             // The request MUST include a header field with the name |Sec-WebSocket-Key|.  The value of this header field MUST be a nonce consisting of a
             // randomly selected 16-byte value that has been base64-encoded (see Section 4 of [RFC4648]).  The nonce MUST be selected randomly for each connection.
@@ -228,26 +266,33 @@ namespace BestHTTP.WebSocket
 
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
             InternalRequest.DisableCache = true;
+            InternalRequest.DisableRetry = true;
 #endif
+
+            InternalRequest.TryToMinimizeTCPLatency = true;
 
 #if !BESTHTTP_DISABLE_PROXY
             // WebSocket is not a request-response based protocol, so we need a 'tunnel' through the proxy
-            if (HTTPManager.Proxy != null)
-                InternalRequest.Proxy = new HTTPProxy(HTTPManager.Proxy.Address,
-                                                      HTTPManager.Proxy.Credentials,
+            HTTPProxy httpProxy = HTTPManager.Proxy as HTTPProxy;
+            if (httpProxy != null)
+                InternalRequest.Proxy = new HTTPProxy(httpProxy.Address,
+                                                      httpProxy.Credentials,
                                                       false, /*turn on 'tunneling'*/
                                                       false, /*sendWholeUri*/
-                                                      HTTPManager.Proxy.NonTransparentForHTTPS);
+                                                      httpProxy.NonTransparentForHTTPS);
 #endif
 #else
             this.Uri = uri;
             this.Protocol = protocol;
 #endif
+
+            // Under WebGL when only the WebSocket protocol is used Setup() isn't called, so we have to call it here.
+            HTTPManager.Setup();
         }
 
-        #endregion
+#endregion
 
-        #region Request Callbacks
+#region Request Callbacks
 
 #if (!UNITY_WEBGL || UNITY_EDITOR)
         private void OnInternalRequestCallback(HTTPRequest req, HTTPResponse resp)
@@ -256,10 +301,10 @@ namespace BestHTTP.WebSocket
 
             switch (req.State)
             {
-                // The request finished without any problem.
                 case HTTPRequestStates.Finished:
                     if (resp.IsSuccess || resp.StatusCode == 101)
                     {
+                        // The request finished without any problem.
                         HTTPManager.Logger.Information("WebSocket", string.Format("Request finished. Status Code: {0} Message: {1}", resp.StatusCode.ToString(), resp.Message));
 
                         return;
@@ -281,7 +326,7 @@ namespace BestHTTP.WebSocket
                     reason = "Request Aborted!";
                     break;
 
-                // Ceonnecting to the server is timed out.
+                // Connecting to the server is timed out.
                 case HTTPRequestStates.ConnectionTimedOut:
                     reason = "Connection Timed Out!";
                     break;
@@ -295,14 +340,22 @@ namespace BestHTTP.WebSocket
                     return;
             }
 
-            if (OnError != null)
-                OnError(this, req.Exception);
+            if (this.State != WebSocketStates.Connecting || !string.IsNullOrEmpty(reason))
+            {
+                if (OnError != null)
+                    OnError(this, req.Exception);
 
-            if (OnErrorDesc != null)
-                OnErrorDesc(this, reason);
+                if (OnErrorDesc != null)
+                    OnErrorDesc(this, reason);
 
-            if (OnError == null && OnErrorDesc == null)
-                HTTPManager.Logger.Error("WebSocket", reason);
+                if (OnError == null && OnErrorDesc == null)
+                    HTTPManager.Logger.Error("WebSocket", reason);
+            }
+            else if (OnClosed != null)
+                OnClosed(this, (ushort)WebSocketStausCodes.NormalClosure, "Closed while opening");
+
+            if (!req.IsKeepAlive && resp != null && resp is WebSocketResponse)
+                (resp as WebSocketResponse).CloseStream();
         }
 
         private void OnInternalRequestUpgraded(HTTPRequest req, HTTPResponse resp)
@@ -323,6 +376,14 @@ namespace BestHTTP.WebSocket
                     OnErrorDesc(this, reason);
                 }
 
+                this.State = WebSocketStates.Closed;
+                return;
+            }
+
+            // If Close called while we connected
+            if (this.State == WebSocketStates.Closed)
+            {
+                webSocket.CloseStream();
                 return;
             }
 
@@ -337,7 +398,7 @@ namespace BestHTTP.WebSocket
                     try
                     {
                         if (ext != null && !ext.ParseNegotiation(webSocket))
-                            this.Extensions[i] = null; // Keep extensions only that succesfully negotiated
+                            this.Extensions[i] = null; // Keep extensions only that successfully negotiated
                     }
                     catch (Exception ex)
                     {
@@ -349,6 +410,7 @@ namespace BestHTTP.WebSocket
                 }
             }
 
+            this.State = WebSocketStates.Open;
             if (OnOpen != null)
             {
                 try
@@ -375,6 +437,8 @@ namespace BestHTTP.WebSocket
 
             webSocket.OnClosed = (ws, code, msg) =>
             {
+                this.State = WebSocketStates.Closed;
+
                 if (OnClosed != null)
                     OnClosed(this, code, msg);
             };
@@ -403,8 +467,8 @@ namespace BestHTTP.WebSocket
         public void Open()
         {
 #if (!UNITY_WEBGL || UNITY_EDITOR)
-            if (requestSent || InternalRequest == null)
-                return;
+            if (requestSent)
+                throw new InvalidOperationException("Open already called! You can't reuse this WebSocket instance!");
 
             if (this.Extensions != null)
             {
@@ -425,10 +489,11 @@ namespace BestHTTP.WebSocket
 
             InternalRequest.Send();
             requestSent = true;
+            this.State = WebSocketStates.Connecting;
 #else
             try
             {
-                ImplementationId = WS_Create(this.Uri.ToString(), this.Protocol, OnOpenCallback, OnTextCallback, OnBinaryCallback, OnErrorCallback, OnCloseCallback);
+                ImplementationId = WS_Create(this.Uri.OriginalString, this.Protocol, OnOpenCallback, OnTextCallback, OnBinaryCallback, OnErrorCallback, OnCloseCallback);
                 WebSockets.Add(ImplementationId, this);
             }
             catch(Exception ex)
@@ -497,10 +562,21 @@ namespace BestHTTP.WebSocket
         /// </summary>
         public void Close()
         {
-            if (!IsOpen)
+            if (State >= WebSocketStates.Closing)
                 return;
-#if (!UNITY_WEBGL || UNITY_EDITOR)
-            webSocket.Close();
+
+#if !UNITY_WEBGL || UNITY_EDITOR
+            if (this.State == WebSocketStates.Connecting)
+            {
+                this.State = WebSocketStates.Closed;
+                if (OnClosed != null)
+                    OnClosed(this, (ushort)WebSocketStausCodes.NoStatusCode, string.Empty);
+            }
+            else
+            {
+                this.State = WebSocketStates.Closing;
+                webSocket.Close();
+            }
 #else
             WS_Close(this.ImplementationId, 1000, "Bye!");
 #endif
@@ -542,9 +618,9 @@ namespace BestHTTP.WebSocket
             }
         }
 
-        #endregion
+#endregion
 
-        #region Private Helpers
+#region Private Helpers
 
 #if !UNITY_WEBGL || UNITY_EDITOR
         private string GetSecKey(object[] from)
@@ -564,9 +640,9 @@ namespace BestHTTP.WebSocket
         }
 #endif
 
-        #endregion
+#endregion
 
-        #region WebGL Static Callbacks
+#region WebGL Static Callbacks
 #if UNITY_WEBGL && !UNITY_EDITOR
 
         [AOT.MonoPInvokeCallback(typeof(OnWebGLWebSocketOpenDelegate))]
@@ -688,6 +764,13 @@ namespace BestHTTP.WebSocket
         [AOT.MonoPInvokeCallback(typeof(OnWebGLWebSocketCloseDelegate))]
         static void OnCloseCallback(uint id, int code, string reason)
         {
+            // To match non-webgl behavior, we have to treat this client-side generated message as an error
+            if (code == (int)WebSocketStausCodes.ClosedAbnormally)
+            {
+                OnErrorCallback(id, "Abnormal disconnection.");
+                return;
+            }
+
             WebSocket ws;
             if (WebSockets.TryGetValue(id, out ws))
             {
@@ -719,9 +802,9 @@ namespace BestHTTP.WebSocket
         }
 
 #endif
-        #endregion
+#endregion
 
-        #region WebGL Interface
+#region WebGL Interface
 #if UNITY_WEBGL && !UNITY_EDITOR
 
         [DllImport("__Internal")]
@@ -729,6 +812,9 @@ namespace BestHTTP.WebSocket
 
         [DllImport("__Internal")]
         static extern WebSocketStates WS_GetState(uint id);
+        
+        [DllImport("__Internal")]
+        static extern int WS_GetBufferedAmount(uint id);
 
         [DllImport("__Internal")]
         static extern int WS_Send_String(uint id, string strData);
@@ -743,7 +829,7 @@ namespace BestHTTP.WebSocket
         static extern void WS_Release(uint id);
 
 #endif
-        #endregion
+#endregion
     }
 }
 

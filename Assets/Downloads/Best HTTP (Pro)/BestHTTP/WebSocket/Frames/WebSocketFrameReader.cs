@@ -48,6 +48,11 @@ namespace BestHTTP.WebSocket.Frames
         /// </summary>
         public byte[] Data { get; private set; }
 
+        /// <summary>
+        /// Textual representation of the received Data.
+        /// </summary>
+        public string DataAsText { get; private set; }
+
         #endregion
 
         #region Internal & Private Functions
@@ -65,7 +70,7 @@ namespace BestHTTP.WebSocket.Frames
 
             byte maskAndLength = ReadByte(stream);
 
-            // The secound byte is the Mask Bit and the length of the payload data
+            // The second byte is the Mask Bit and the length of the payload data
             HasMask = (maskAndLength & 0x80) != 0;
 
             // if 0-125, that is the payload length.
@@ -184,6 +189,9 @@ namespace BestHTTP.WebSocket.Frames
                     if (ext != null)
                         this.Data = ext.Decode(this.Header, this.Data);
                 }
+
+            if (this.Type == WebSocketFrameTypes.Text && this.Data != null)
+                this.DataAsText = System.Text.Encoding.UTF8.GetString(this.Data, 0, this.Data.Length);
         }
 
         #endregion
