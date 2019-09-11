@@ -2,6 +2,8 @@
 using System;
 using System.Collections;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Asn1.X9
 {
 	public class DHDomainParameters
@@ -23,7 +25,7 @@ namespace Org.BouncyCastle.Asn1.X9
 			if (obj is Asn1Sequence)
 				return new DHDomainParameters((Asn1Sequence)obj);
 
-			throw new ArgumentException("Invalid DHDomainParameters: " + obj.GetType().FullName, "obj");
+			throw new ArgumentException("Invalid DHDomainParameters: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj), "obj");
 		}
 
 		public DHDomainParameters(DerInteger p, DerInteger g, DerInteger q, DerInteger j,

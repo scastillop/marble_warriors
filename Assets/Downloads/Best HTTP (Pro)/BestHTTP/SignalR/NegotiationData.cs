@@ -170,7 +170,7 @@ namespace BestHTTP.SignalR
                 default:
                     RaiseOnError(req.State.ToString());
                     break;
-            }   
+            }
         }
 
         #endregion

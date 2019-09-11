@@ -6,13 +6,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
+using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Utilities;
-
-#pragma warning disable 0219
 
 namespace Org.BouncyCastle.Math
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE)
+#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE || PORTABLE)
     [Serializable]
 #endif
     public class BigInteger
@@ -183,7 +182,7 @@ namespace Org.BouncyCastle.Math
         private const int chunk2 = 1, chunk8 = 1, chunk10 = 19, chunk16 = 16;
         private static readonly BigInteger radix2, radix2E, radix8, radix8E, radix10, radix10E, radix16, radix16E;
 
-        private static readonly Random RandomSource = new Random();
+        private static readonly SecureRandom RandomSource = new SecureRandom();
 
         /*
          * These are the threshold bit-lengths (of an exponent) where we increase the window size.
@@ -248,6 +247,11 @@ namespace Org.BouncyCastle.Math
             int nBits)
         {
             return (nBits + BitsPerByte - 1) / BitsPerByte;
+        }
+
+        internal static BigInteger Arbitrary(int sizeInBits)
+        {
+            return new BigInteger(sizeInBits, RandomSource);
         }
 
         private BigInteger(
@@ -673,12 +677,13 @@ namespace Org.BouncyCastle.Math
                     :	Three.magnitude;
                 return;
             }
-             
+
             int nBytes = GetByteLength(bitLength);
             byte[] b = new byte[nBytes];
 
             int xBits = BitsPerByte * nBytes - bitLength;
             byte mask = (byte)(255U >> xBits);
+            byte lead = (byte)(1 << (7 - xBits));
 
             for (;;)
             {
@@ -688,7 +693,7 @@ namespace Org.BouncyCastle.Math
                 b[0] &= mask;
 
                 // ensure the leading bit is 1 (to meet the strength requirement)
-                b[0] |= (byte)(1 << (7 - xBits));
+                b[0] |= lead;
 
                 // ensure the trailing bit is 1 (i.e. must be odd)
                 b[nBytes - 1] |= 1;
@@ -700,21 +705,15 @@ namespace Org.BouncyCastle.Math
                 if (certainty < 1)
                     break;
 
-                if (CheckProbablePrime(certainty, random))
+                if (CheckProbablePrime(certainty, random, true))
                     break;
 
-                if (bitLength > 32)
+                for (int j = 1; j < (magnitude.Length - 1); ++j)
                 {
-                    for (int rep = 0; rep < 10000; ++rep)
-                    {
-                        int n = 33 + random.Next(bitLength - 2);
-                        this.magnitude[this.magnitude.Length - (n >> 5)] ^= (1 << (n & 31));
-                        this.magnitude[this.magnitude.Length - 1] ^= ((random.Next() + 1) << 1);
-                        this.mQuote = 0;
+                    this.magnitude[j] ^= random.Next();
 
-                        if (CheckProbablePrime(certainty, random))
-                            return;
-                    }
+                    if (CheckProbablePrime(certainty, random, true))
+                        return;
                 }
             }
         }
@@ -966,7 +965,7 @@ namespace Org.BouncyCastle.Math
         //
         // BitLen(value) is the number of bits in value.
         //
-        private static int BitLen(int w)
+        internal static int BitLen(int w)
         {
             uint v = (uint)w;
             uint t = v >> 24;
@@ -1256,7 +1255,7 @@ namespace Org.BouncyCastle.Math
 
         private bool IsEqualMagnitude(BigInteger x)
         {
-            int[] xMag = x.magnitude;
+            //int[] xMag = x.magnitude;
             if (magnitude.Length != x.magnitude.Length)
                 return false;
             for (int i = 0; i < magnitude.Length; i++)
@@ -1338,8 +1337,12 @@ namespace Org.BouncyCastle.Math
          * probability of 1 - (1/2)**certainty.
          * <p>From Knuth Vol 2, pg 395.</p>
          */
-        public bool IsProbablePrime(
-            int certainty)
+        public bool IsProbablePrime(int certainty)
+        {
+            return IsProbablePrime(certainty, false);
+        }
+
+        internal bool IsProbablePrime(int certainty, bool randomlySelected)
         {
             if (certainty <= 0)
                 return true;
@@ -1352,12 +1355,10 @@ namespace Org.BouncyCastle.Math
             if (n.Equals(One))
                 return false;
 
-            return n.CheckProbablePrime(certainty, RandomSource);
+            return n.CheckProbablePrime(certainty, RandomSource, randomlySelected);
         }
 
-        private bool CheckProbablePrime(
-            int		certainty,
-            Random	random)
+        private bool CheckProbablePrime(int certainty, Random random, bool randomlySelected)
         {
             Debug.Assert(certainty > 0);
             Debug.Assert(CompareTo(Two) > 0);
@@ -1393,7 +1394,7 @@ namespace Org.BouncyCastle.Math
 
 
             // TODO Is it worth trying to create a hybrid of these two?
-            return RabinMillerTest(certainty, random);
+            return RabinMillerTest(certainty, random, randomlySelected);
 //			return SolovayStrassenTest(certainty, random);
 
 //			bool rbTest = RabinMillerTest(certainty, random);
@@ -1406,9 +1407,35 @@ namespace Org.BouncyCastle.Math
 
         public bool RabinMillerTest(int certainty, Random random)
         {
+            return RabinMillerTest(certainty, random, false);
+        }
+
+        internal bool RabinMillerTest(int certainty, Random random, bool randomlySelected)
+        {
+            int bits = BitLength;
+
             Debug.Assert(certainty > 0);
-            Debug.Assert(BitLength > 2);
+            Debug.Assert(bits > 2);
             Debug.Assert(TestBit(0));
+
+            int iterations = ((certainty - 1) / 2) + 1;
+            if (randomlySelected)
+            {
+                int itersFor100Cert = bits >= 1024 ?  4
+                                    : bits >= 512  ?  8
+                                    : bits >= 256  ? 16
+                                    : 50;
+
+                if (certainty < 100)
+                {
+                    iterations = System.Math.Min(itersFor100Cert, iterations);
+                }
+                else
+                {
+                    iterations -= 50;
+                    iterations += itersFor100Cert;
+                }
+            }
 
             // let n = 1 + d . 2^s
             BigInteger n = this;
@@ -1447,10 +1474,8 @@ namespace Org.BouncyCastle.Math
                             return false;
                     }
                 }
-
-                certainty -= 2; // composites pass for only 1/4 possible 'a'
             }
-            while (certainty > 0);
+            while (--iterations > 0);
 
             return true;
         }
@@ -2157,9 +2182,9 @@ namespace Org.BouncyCastle.Math
                     for (int j = y.Length - 1; j >= 0; j--)
                     {
                         val += a * (y[j] & IMASK) + (x[xBase + j] & IMASK);
-    
+
                         x[xBase + j] = (int)val;
-    
+
                         val = (long)((ulong)val >> 32);
                     }
                 }
@@ -2492,7 +2517,7 @@ namespace Org.BouncyCastle.Math
 
             BigInteger n = Inc().SetBit(0);
 
-            while (!n.CheckProbablePrime(100, RandomSource))
+            while (!n.CheckProbablePrime(100, RandomSource, false))
             {
                 n = n.Add(Two);
             }
@@ -2527,7 +2552,7 @@ namespace Org.BouncyCastle.Math
                 {
                     throw new ArithmeticException("Result too large");
                 }
-                return One.ShiftLeft((int)powOf2); 
+                return One.ShiftLeft((int)powOf2);
             }
 
             BigInteger y = One;
@@ -3211,7 +3236,7 @@ namespace Org.BouncyCastle.Math
                 int mask = (1 << 30) - 1;
                 BigInteger u = this.Abs();
                 int bits = u.BitLength;
-                IList S = Platform.CreateArrayList();
+                IList S = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
                 while (bits > 30)
                 {
                     S.Add(Convert.ToString(u.IntValue & mask, 8));
@@ -3261,7 +3286,7 @@ namespace Org.BouncyCastle.Math
 
                 BigInteger bigPower = BigInteger.ValueOf(power);
 
-                IList S = Platform.CreateArrayList();
+                IList S = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
                 while (q.CompareTo(bigPower) >= 0)
                 {
                     BigInteger[] qr = q.DivideAndRemainder(bigPower);

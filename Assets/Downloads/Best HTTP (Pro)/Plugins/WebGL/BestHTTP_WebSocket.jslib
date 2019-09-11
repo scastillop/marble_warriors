@@ -19,24 +19,34 @@ var Lib_BEST_HTTP_WebGL_WS_Bridge =
 
 		_callOnClose: function(onClose, id, code, reason)
 		{
-			var buffer = _malloc(reason.length + 1);
-			writeStringToMemory(reason, buffer);
+			var length = lengthBytesUTF8(reason) + 1;
+			var buffer = _malloc(length);
+
+			stringToUTF8Array(reason, HEAPU8, buffer, length);
+
 			Runtime.dynCall('viii', onClose, [id, code, buffer]);
+
 			_free(buffer);
 		},
 
 		_callOnError: function(errCallback, id, reason)
 		{
-			var buffer = _malloc(reason.length + 1);
-			writeStringToMemory(reason, buffer);
+			var length = lengthBytesUTF8(reason) + 1;
+			var buffer = _malloc(length);
+
+			stringToUTF8Array(reason, HEAPU8, buffer, length);
+
 			Runtime.dynCall('vii', errCallback, [id, buffer]);
+
 			_free(buffer);
 		}
 	},
 
 	WS_Create: function(url, protocol, onOpen, onText, onBinary, onError, onClose)
 	{
-		var urlStr = encodeURI(Pointer_stringify(url)).replace(/\+/g, '%2B');
+		var urlStr = /*encodeURI*/(Pointer_stringify(url))
+					.replace(/\+/g, '%2B')
+					.replace(/%252[fF]/ig, '%2F');
 		var proto = Pointer_stringify(protocol);
 
 		console.log('WS_Create(' + urlStr + ', "' + proto + '")');
@@ -75,9 +85,13 @@ var Lib_BEST_HTTP_WebGL_WS_Bridge =
 			}
 			else // Text
 			{
-				var buffer = _malloc(e.data.length + 1);
-				writeStringToMemory(e.data, buffer);
+				var length = lengthBytesUTF8(e.data) + 1;
+				var buffer = _malloc(length);
+
+				stringToUTF8Array(e.data, HEAPU8, buffer, length);
+
 				Runtime.dynCall('vii', onText, [id, buffer]);
+
 				_free(buffer);
 			}
 		};
@@ -93,31 +107,31 @@ var Lib_BEST_HTTP_WebGL_WS_Bridge =
 		socket.socketImpl.onclose = function (e) {
 			console.log(id + ' WS_Create - onClose ' + e.code + ' ' + e.reason);
 
-			if (e.code != 1000)
-			{
-				if (e.reason != null && e.reason.length > 0)
-					ws._callOnError(onError, id, e.reason);
-				else
-				{
-					switch (e.code)
-					{
-						case 1001: ws._callOnError(onError, id, "Endpoint going away.");
-							break;
-						case 1002: ws._callOnError(onError, id, "Protocol error.");
-							break;
-						case 1003: ws._callOnError(onError, id, "Unsupported message.");
-							break;
-						case 1005: ws._callOnError(onError, id, "No status.");
-							break;
-						case 1006: ws._callOnError(onError, id, "Abnormal disconnection.");
-							break;
-						case 1009: ws._callOnError(onError, id, "Data frame too large.");
-							break;
-						default: ws._callOnError(onError, id, "Error " + e.code);
-					}
-				}
-			}
-			else
+			//if (e.code != 1000)
+			//{
+			//	if (e.reason != null && e.reason.length > 0)
+			//		ws._callOnError(onError, id, e.reason);
+			//	else
+			//	{
+			//		switch (e.code)
+			//		{
+			//			case 1001: ws._callOnError(onError, id, "Endpoint going away.");
+			//				break;
+			//			case 1002: ws._callOnError(onError, id, "Protocol error.");
+			//				break;
+			//			case 1003: ws._callOnError(onError, id, "Unsupported message.");
+			//				break;
+			//			case 1005: ws._callOnError(onError, id, "No status.");
+			//				break;
+			//			case 1006: ws._callOnError(onError, id, "Abnormal disconnection.");
+			//				break;
+			//			case 1009: ws._callOnError(onError, id, "Data frame too large.");
+			//				break;
+			//			default: ws._callOnError(onError, id, "Error " + e.code);
+			//		}
+			//	}
+			//}
+			//else
 				ws._callOnClose(onClose, id, e.code, e.reason);
 		};
 
@@ -127,14 +141,24 @@ var Lib_BEST_HTTP_WebGL_WS_Bridge =
 	WS_GetState: function (id)
 	{
 		var socket = ws.Get(id);
-		
+
+		if (typeof socket === 'undefined' ||
+			socket == null ||
+			typeof socket.socketImpl === 'undefined' ||
+			socket.socketImpl == null)
+			return 3; // closed
+
 		return socket.socketImpl.readyState;
+	},
+
+  WS_GetBufferedAmount: function (id)
+	{
+		var socket = ws.Get(id);
+		return socket.socketImpl.bufferedAmount;
 	},
 
 	WS_Send_String: function (id, str)
 	{
-		console.log(id + ' WS_Send_String');
-
 		var socket = ws.Get(id);
 		var str = Pointer_stringify(str);
 
@@ -151,13 +175,11 @@ var Lib_BEST_HTTP_WebGL_WS_Bridge =
 
 	WS_Send_Binary: function(id, ptr, pos, length)
 	{
-		console.log(id + ' WS_Send_Binary');
-
 		var socket = ws.Get(id);
 
 		try
 		{
-      var buff = HEAPU8.subarray(ptr + pos, ptr + pos + length);
+			var buff = HEAPU8.subarray(ptr + pos, ptr + pos + length);
 			socket.socketImpl.send(buff /*HEAPU8.buffer.slice(ptr + pos, ptr + pos + length)*/);
 		}
 		catch(e) {

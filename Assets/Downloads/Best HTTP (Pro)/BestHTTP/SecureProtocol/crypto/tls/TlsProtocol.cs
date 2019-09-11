@@ -36,6 +36,13 @@ namespace Org.BouncyCastle.Crypto.Tls
         protected const short CS_END = 16;
 
         /*
+         * Different modes to handle the known IV weakness
+         */
+        protected const short ADS_MODE_1_Nsub1 = 0; // 1/n-1 record splitting
+        protected const short ADS_MODE_0_N = 1; // 0/n record splitting
+        protected const short ADS_MODE_0_N_FIRSTONLY = 2; // 0/n record splitting on first data fragment only
+
+        /*
          * Queues for data from some protocols.
          */
         private ByteQueue mApplicationDataQueue = new ByteQueue();
@@ -54,7 +61,8 @@ namespace Org.BouncyCastle.Crypto.Tls
         private volatile bool mClosed = false;
         private volatile bool mFailedWithError = false;
         private volatile bool mAppDataReady = false;
-        private volatile bool mSplitApplicationDataRecords = true;
+        private volatile bool mAppDataSplitEnabled = true;
+        private volatile int mAppDataSplitMode = ADS_MODE_1_Nsub1;
         private byte[] mExpectedVerifyData = null;
 
         protected TlsSession mTlsSession = null;
@@ -74,6 +82,10 @@ namespace Org.BouncyCastle.Crypto.Tls
         protected bool mAllowCertificateStatus = false;
         protected bool mExpectSessionTicket = false;
 
+        protected bool mBlocking = true;
+        protected ByteQueueStream mInputBuffers = null;
+        protected ByteQueueStream mOutputBuffer = null;
+
         public TlsProtocol(Stream stream, SecureRandom secureRandom)
             :   this(stream, stream, secureRandom)
         {
@@ -82,6 +94,15 @@ namespace Org.BouncyCastle.Crypto.Tls
         public TlsProtocol(Stream input, Stream output, SecureRandom secureRandom)
         {
             this.mRecordStream = new RecordStream(this, input, output);
+            this.mSecureRandom = secureRandom;
+        }
+
+        public TlsProtocol(SecureRandom secureRandom)
+        {
+            this.mBlocking = false;
+            this.mInputBuffers = new ByteQueueStream();
+            this.mOutputBuffer = new ByteQueueStream();
+            this.mRecordStream = new RecordStream(this, mInputBuffers, mOutputBuffer);
             this.mSecureRandom = secureRandom;
         }
 
@@ -142,13 +163,10 @@ namespace Org.BouncyCastle.Crypto.Tls
             this.mExpectSessionTicket = false;
         }
 
-        protected virtual void CompleteHandshake()
+        protected virtual void BlockForHandshake()
         {
-            try
+            if (mBlocking)
             {
-                /*
-                 * We will now read data, until we have completed the handshake.
-                 */
                 while (this.mConnectionState != CS_END)
                 {
                     if (this.mClosed)
@@ -158,10 +176,16 @@ namespace Org.BouncyCastle.Crypto.Tls
 
                     SafeReadRecord();
                 }
+            }
+        }
 
+        protected virtual void CompleteHandshake()
+        {
+            try
+            {
                 this.mRecordStream.FinaliseHandshake();
 
-                this.mSplitApplicationDataRecords = !TlsUtilities.IsTlsV11(Context);
+                this.mAppDataSplitEnabled = !TlsUtilities.IsTlsV11(Context);
 
                 /*
                  * If this was an initial handshake, we are now ready to send and receive application data.
@@ -170,7 +194,10 @@ namespace Org.BouncyCastle.Crypto.Tls
                 {
                     this.mAppDataReady = true;
 
-                    this.mTlsStream = new TlsStream(this);
+                    if (mBlocking)
+                    {
+                        this.mTlsStream = new TlsStream(this);
+                    }
                 }
 
                 if (this.mTlsSession != null)
@@ -248,7 +275,7 @@ namespace Org.BouncyCastle.Crypto.Tls
             default:
                 /*
                  * Uh, we don't know this protocol.
-                 * 
+                 *
                  * RFC2246 defines on page 13, that we should ignore this.
                  */
                 break;
@@ -324,7 +351,7 @@ namespace Org.BouncyCastle.Crypto.Tls
         {
             /*
              * There is nothing we need to do here.
-             * 
+             *
              * This function could be used for callbacks when application data arrives in the future.
              */
         }
@@ -535,20 +562,33 @@ namespace Org.BouncyCastle.Crypto.Tls
                 /*
                  * RFC 5246 6.2.1. Zero-length fragments of Application data MAY be sent as they are
                  * potentially useful as a traffic analysis countermeasure.
-                 * 
+                 *
                  * NOTE: Actually, implementations appear to have settled on 1/n-1 record splitting.
                  */
 
-                if (this.mSplitApplicationDataRecords)
+                if (this.mAppDataSplitEnabled)
                 {
                     /*
                      * Protect against known IV attack!
-                     * 
+                     *
                      * DO NOT REMOVE THIS CODE, EXCEPT YOU KNOW EXACTLY WHAT YOU ARE DOING HERE.
                      */
-                    SafeWriteRecord(ContentType.application_data, buf, offset, 1);
-                    ++offset;
-                    --len;
+                    switch (mAppDataSplitMode)
+                    {
+                    case ADS_MODE_0_N:
+                        SafeWriteRecord(ContentType.application_data, TlsUtilities.EmptyBytes, 0, 0);
+                        break;
+                    case ADS_MODE_0_N_FIRSTONLY:
+                        this.mAppDataSplitEnabled = false;
+                        SafeWriteRecord(ContentType.application_data, TlsUtilities.EmptyBytes, 0, 0);
+                        break;
+                    case ADS_MODE_1_Nsub1:
+                    default:
+                        SafeWriteRecord(ContentType.application_data, buf, offset, 1);
+                        ++offset;
+                        --len;
+                        break;
+                    }
                 }
 
                 if (len > 0)
@@ -560,6 +600,14 @@ namespace Org.BouncyCastle.Crypto.Tls
                     len -= toWrite;
                 }
             }
+        }
+
+        protected virtual void SetAppDataSplitMode(int appDataSplitMode)
+        {
+            if (appDataSplitMode < ADS_MODE_1_Nsub1 || appDataSplitMode > ADS_MODE_0_N_FIRSTONLY)
+                throw new ArgumentException("Illegal appDataSplitMode mode: " + appDataSplitMode, "appDataSplitMode");
+
+            this.mAppDataSplitMode = appDataSplitMode;
         }
 
         protected virtual void WriteHandshakeMessage(byte[] buf, int off, int len)
@@ -575,14 +623,161 @@ namespace Org.BouncyCastle.Crypto.Tls
         }
 
         /// <summary>The secure bidirectional stream for this connection</summary>
+        /// <remarks>Only allowed in blocking mode.</remarks>
         public virtual Stream Stream
         {
-            get { return this.mTlsStream; }
+            get
+            {
+                if (!mBlocking)
+                    throw new InvalidOperationException("Cannot use Stream in non-blocking mode! Use OfferInput()/OfferOutput() instead.");
+                return this.mTlsStream;
+            }
+        }
+
+        /**
+         * Offer input from an arbitrary source. Only allowed in non-blocking mode.<br/>
+         * <br/>
+         * After this method returns, the input buffer is "owned" by this object. Other code
+         * must not attempt to do anything with it.<br/>
+         * <br/>
+         * This method will decrypt and process all records that are fully available.
+         * If only part of a record is available, the buffer will be retained until the
+         * remainder of the record is offered.<br/>
+         * <br/>
+         * If any records containing application data were processed, the decrypted data
+         * can be obtained using {@link #readInput(byte[], int, int)}. If any records
+         * containing protocol data were processed, a response may have been generated.
+         * You should always check to see if there is any available output after calling
+         * this method by calling {@link #getAvailableOutputBytes()}.
+         * @param input The input buffer to offer
+         * @throws IOException If an error occurs while decrypting or processing a record
+         */
+        public virtual void OfferInput(byte[] input)
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use OfferInput() in blocking mode! Use Stream instead.");
+            if (mClosed)
+                throw new IOException("Connection is closed, cannot accept any more input");
+
+            mInputBuffers.Write(input);
+
+            // loop while there are enough bytes to read the length of the next record
+            while (mInputBuffers.Available >= RecordStream.TLS_HEADER_SIZE)
+            {
+                byte[] header = new byte[RecordStream.TLS_HEADER_SIZE];
+                mInputBuffers.Peek(header);
+
+                int totalLength = TlsUtilities.ReadUint16(header, RecordStream.TLS_HEADER_LENGTH_OFFSET) + RecordStream.TLS_HEADER_SIZE;
+                if (mInputBuffers.Available < totalLength)
+                {
+                    // not enough bytes to read a whole record
+                    break;
+                }
+
+                SafeReadRecord();
+            }
+        }
+
+        /**
+         * Gets the amount of received application data. A call to {@link #readInput(byte[], int, int)}
+         * is guaranteed to be able to return at least this much data.<br/>
+         * <br/>
+         * Only allowed in non-blocking mode.
+         * @return The number of bytes of available application data
+         */
+        public virtual int GetAvailableInputBytes()
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use GetAvailableInputBytes() in blocking mode! Use ApplicationDataAvailable() instead.");
+
+            return ApplicationDataAvailable();
+        }
+
+        /**
+         * Retrieves received application data. Use {@link #getAvailableInputBytes()} to check
+         * how much application data is currently available. This method functions similarly to
+         * {@link InputStream#read(byte[], int, int)}, except that it never blocks. If no data
+         * is available, nothing will be copied and zero will be returned.<br/>
+         * <br/>
+         * Only allowed in non-blocking mode.
+         * @param buffer The buffer to hold the application data
+         * @param offset The start offset in the buffer at which the data is written
+         * @param length The maximum number of bytes to read
+         * @return The total number of bytes copied to the buffer. May be less than the
+         *          length specified if the length was greater than the amount of available data.
+         */
+        public virtual int ReadInput(byte[] buffer, int offset, int length)
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use ReadInput() in blocking mode! Use Stream instead.");
+
+            return ReadApplicationData(buffer, offset, System.Math.Min(length, ApplicationDataAvailable()));
+        }
+
+        /**
+         * Offer output from an arbitrary source. Only allowed in non-blocking mode.<br/>
+         * <br/>
+         * After this method returns, the specified section of the buffer will have been
+         * processed. Use {@link #readOutput(byte[], int, int)} to get the bytes to
+         * transmit to the other peer.<br/>
+         * <br/>
+         * This method must not be called until after the handshake is complete! Attempting
+         * to call it before the handshake is complete will result in an exception.
+         * @param buffer The buffer containing application data to encrypt
+         * @param offset The offset at which to begin reading data
+         * @param length The number of bytes of data to read
+         * @throws IOException If an error occurs encrypting the data, or the handshake is not complete
+         */
+        public virtual void OfferOutput(byte[] buffer, int offset, int length)
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use OfferOutput() in blocking mode! Use Stream instead.");
+            if (!mAppDataReady)
+                throw new IOException("Application data cannot be sent until the handshake is complete!");
+
+            WriteData(buffer, offset, length);
+        }
+
+        /**
+         * Gets the amount of encrypted data available to be sent. A call to
+         * {@link #readOutput(byte[], int, int)} is guaranteed to be able to return at
+         * least this much data.<br/>
+         * <br/>
+         * Only allowed in non-blocking mode.
+         * @return The number of bytes of available encrypted data
+         */
+        public virtual int GetAvailableOutputBytes()
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use GetAvailableOutputBytes() in blocking mode! Use Stream instead.");
+
+            return mOutputBuffer.Available;
+        }
+
+        /**
+         * Retrieves encrypted data to be sent. Use {@link #getAvailableOutputBytes()} to check
+         * how much encrypted data is currently available. This method functions similarly to
+         * {@link InputStream#read(byte[], int, int)}, except that it never blocks. If no data
+         * is available, nothing will be copied and zero will be returned.<br/>
+         * <br/>
+         * Only allowed in non-blocking mode.
+         * @param buffer The buffer to hold the encrypted data
+         * @param offset The start offset in the buffer at which the data is written
+         * @param length The maximum number of bytes to read
+         * @return The total number of bytes copied to the buffer. May be less than the
+         *          length specified if the length was greater than the amount of available data.
+         */
+        public virtual int ReadOutput(byte[] buffer, int offset, int length)
+        {
+            if (mBlocking)
+                throw new InvalidOperationException("Cannot use ReadOutput() in blocking mode! Use Stream instead.");
+
+            return mOutputBuffer.Read(buffer, offset, length);
         }
 
         /**
          * Terminate this connection with an alert. Can be used for normal closure too.
-         * 
+         *
          * @param alertLevel
          *            See {@link AlertLevel} for values.
          * @param alertDescription
@@ -766,7 +961,7 @@ namespace Org.BouncyCastle.Crypto.Tls
             mRecordStream.Flush();
         }
 
-        protected internal virtual bool IsClosed
+        public virtual bool IsClosed
         {
             get { return mClosed; }
         }
@@ -878,7 +1073,7 @@ namespace Org.BouncyCastle.Crypto.Tls
             MemoryStream buf = new MemoryStream(extBytes, false);
 
             // Integer -> byte[]
-            IDictionary extensions = Platform.CreateHashtable();
+            IDictionary extensions = Org.BouncyCastle.Utilities.Platform.CreateHashtable();
 
             while (buf.Position < buf.Length)
             {
@@ -905,7 +1100,7 @@ namespace Org.BouncyCastle.Crypto.Tls
 
             MemoryStream buf = new MemoryStream(supp_data, false);
 
-            IList supplementalData = Platform.CreateArrayList();
+            IList supplementalData = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
 
             while (buf.Position < buf.Length)
             {
@@ -922,18 +1117,30 @@ namespace Org.BouncyCastle.Crypto.Tls
         {
             MemoryStream buf = new MemoryStream();
 
-            foreach (int extension_type in extensions.Keys)
-            {
-                byte[] extension_data = (byte[])extensions[extension_type];
-
-                TlsUtilities.CheckUint16(extension_type);
-                TlsUtilities.WriteUint16(extension_type, buf);
-                TlsUtilities.WriteOpaque16(extension_data, buf);
-            }
+            /*
+             * NOTE: There are reports of servers that don't accept a zero-length extension as the last
+             * one, so we write out any zero-length ones first as a best-effort workaround.
+             */
+            WriteSelectedExtensions(buf, extensions, true);
+            WriteSelectedExtensions(buf, extensions, false);
 
             byte[] extBytes = buf.ToArray();
 
             TlsUtilities.WriteOpaque16(extBytes, output);
+        }
+
+        protected internal static void WriteSelectedExtensions(Stream output, IDictionary extensions, bool selectEmpty)
+        {
+            foreach (int extension_type in extensions.Keys)
+            {
+                byte[] extension_data = (byte[])extensions[extension_type];
+                if (selectEmpty == (extension_data.Length == 0))
+                {
+                    TlsUtilities.CheckUint16(extension_type);
+                    TlsUtilities.WriteUint16(extension_type, output);
+                    TlsUtilities.WriteOpaque16(extension_data, output);
+                }
+            }
         }
 
         protected internal static void WriteSupplementalData(Stream output, IList supplementalData)
@@ -982,19 +1189,24 @@ namespace Org.BouncyCastle.Crypto.Tls
             case CipherSuite.TLS_DHE_DSS_WITH_CAMELLIA_256_CBC_SHA256:
             case CipherSuite.TLS_DHE_PSK_WITH_AES_128_CCM:
             case CipherSuite.TLS_DHE_PSK_WITH_AES_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_DHE_PSK_WITH_AES_128_OCB:
             case CipherSuite.TLS_DHE_PSK_WITH_AES_256_CCM:
+            case CipherSuite.DRAFT_TLS_DHE_PSK_WITH_AES_256_OCB:
             case CipherSuite.TLS_DHE_PSK_WITH_CAMELLIA_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_DHE_PSK_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_128_CCM:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_128_CCM_8:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_DHE_RSA_WITH_AES_128_OCB:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_256_CBC_SHA256:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_256_CCM:
             case CipherSuite.TLS_DHE_RSA_WITH_AES_256_CCM_8:
+            case CipherSuite.DRAFT_TLS_DHE_RSA_WITH_AES_256_OCB:
             case CipherSuite.TLS_DHE_RSA_WITH_CAMELLIA_128_CBC_SHA256:
             case CipherSuite.TLS_DHE_RSA_WITH_CAMELLIA_128_GCM_SHA256:
             case CipherSuite.TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256:
-            case CipherSuite.TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
+            case CipherSuite.DRAFT_TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256:
             case CipherSuite.TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256:
             case CipherSuite.TLS_ECDH_ECDSA_WITH_CAMELLIA_128_CBC_SHA256:
@@ -1007,26 +1219,37 @@ namespace Org.BouncyCastle.Crypto.Tls
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_ECDHE_ECDSA_WITH_AES_128_OCB:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_CCM:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_CCM_8:
+            case CipherSuite.DRAFT_TLS_ECDHE_ECDSA_WITH_AES_256_OCB:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_CBC_SHA256:
             case CipherSuite.TLS_ECDHE_ECDSA_WITH_CAMELLIA_128_GCM_SHA256:
-            case CipherSuite.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:
+            case CipherSuite.DRAFT_TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:
+            case CipherSuite.DRAFT_TLS_ECDHE_PSK_WITH_AES_128_OCB:
+            case CipherSuite.DRAFT_TLS_ECDHE_PSK_WITH_AES_256_OCB:
+            case CipherSuite.DRAFT_TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
             case CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_ECDHE_RSA_WITH_AES_128_OCB:
+            case CipherSuite.DRAFT_TLS_ECDHE_RSA_WITH_AES_256_OCB:
             case CipherSuite.TLS_ECDHE_RSA_WITH_CAMELLIA_128_CBC_SHA256:
             case CipherSuite.TLS_ECDHE_RSA_WITH_CAMELLIA_128_GCM_SHA256:
-            case CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
+            case CipherSuite.DRAFT_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_PSK_DHE_WITH_AES_128_CCM_8:
             case CipherSuite.TLS_PSK_DHE_WITH_AES_256_CCM_8:
             case CipherSuite.TLS_PSK_WITH_AES_128_CCM:
             case CipherSuite.TLS_PSK_WITH_AES_128_CCM_8:
             case CipherSuite.TLS_PSK_WITH_AES_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_PSK_WITH_AES_128_OCB:
             case CipherSuite.TLS_PSK_WITH_AES_256_CCM:
             case CipherSuite.TLS_PSK_WITH_AES_256_CCM_8:
+            case CipherSuite.DRAFT_TLS_PSK_WITH_AES_256_OCB:
             case CipherSuite.TLS_PSK_WITH_CAMELLIA_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_PSK_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_RSA_PSK_WITH_AES_128_GCM_SHA256:
             case CipherSuite.TLS_RSA_PSK_WITH_CAMELLIA_128_GCM_SHA256:
+            case CipherSuite.DRAFT_TLS_RSA_PSK_WITH_CHACHA20_POLY1305_SHA256:
             case CipherSuite.TLS_RSA_WITH_AES_128_CBC_SHA256:
             case CipherSuite.TLS_RSA_WITH_AES_128_CCM:
             case CipherSuite.TLS_RSA_WITH_AES_128_CCM_8:
@@ -1147,10 +1370,16 @@ namespace Org.BouncyCastle.Crypto.Tls
                 this.Position = 1;
                 TlsUtilities.WriteUint24((int)length, this);
 
-                byte[] buffer = ToArray();
-                protocol.WriteHandshakeMessage(buffer /*GetBuffer()*/, 0, (int)Length);
+#if PORTABLE || NETFX_CORE
+                byte[] buf = ToArray();
+                int bufLen = buf.Length;
+#else
+                byte[] buf = GetBuffer();
+                int bufLen = (int)Length;
+#endif
 
-                this.Dispose();
+                protocol.WriteHandshakeMessage(buf, 0, bufLen);
+                Org.BouncyCastle.Utilities.Platform.Dispose(this);
             }
         }
     }

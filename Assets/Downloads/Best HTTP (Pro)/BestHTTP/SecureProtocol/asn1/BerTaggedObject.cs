@@ -83,7 +83,7 @@ namespace Org.BouncyCastle.Asn1
 						}
 						else
 						{
-							throw Platform.CreateNotImplementedException(obj.GetType().Name);
+							throw Org.BouncyCastle.Utilities.Platform.CreateNotImplementedException(Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
 						}
 
 						foreach (Asn1Encodable o in eObj)

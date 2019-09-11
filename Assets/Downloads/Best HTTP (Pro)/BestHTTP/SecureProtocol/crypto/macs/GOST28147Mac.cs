@@ -4,6 +4,7 @@ using System;
 
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 namespace Org.BouncyCastle.Crypto.Macs
 {
@@ -85,7 +86,7 @@ namespace Org.BouncyCastle.Crypto.Macs
 			else
 			{
 				throw new ArgumentException("invalid parameter passed to Gost28147 init - "
-					+ parameters.GetType().Name);
+                    + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 			}
 		}
 

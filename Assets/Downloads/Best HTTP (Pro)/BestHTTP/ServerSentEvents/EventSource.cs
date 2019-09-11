@@ -32,7 +32,7 @@ namespace BestHTTP.ServerSentEvents
     public delegate void OnStateChangedDelegate(EventSource eventSource, States oldState, States newState);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-    
+
     delegate void OnWebGLEventSourceOpenDelegate(uint id);
     delegate void OnWebGLEventSourceMessageDelegate(uint id, string eventStr, string data, string eventId, int retry);
     delegate void OnWebGLEventSourceErrorDelegate(uint id, string reason);
@@ -97,6 +97,8 @@ namespace BestHTTP.ServerSentEvents
         /// The internal request object of the EventSource.
         /// </summary>
         public HTTPRequest InternalRequest { get; private set; }
+#else
+        public bool WithCredentials { get; set; }
 #endif
 
 #endregion
@@ -114,7 +116,7 @@ namespace BestHTTP.ServerSentEvents
         public event OnMessageDelegate OnMessage;
 
         /// <summary>
-        /// Called when an error occures.
+        /// Called when an error occurs.
         /// </summary>
         public event OnErrorDelegate OnError;
 
@@ -159,7 +161,7 @@ namespace BestHTTP.ServerSentEvents
         private uint Id;
 #endif
 
-        #endregion
+#endregion
 
         public EventSource(Uri uri)
         {
@@ -180,13 +182,20 @@ namespace BestHTTP.ServerSentEvents
 
             // Disable internal retry
             this.InternalRequest.DisableRetry = true;
+#else
+            if (!ES_IsSupported())
+              throw new NotSupportedException("This browser isn't support the EventSource protocol!");
+
+            this.Id = ES_Create(this.Uri.ToString(), WithCredentials, OnOpenCallback, OnMessageCallback, OnErrorCallback);
+
+            EventSources.Add(this.Id, this);
 #endif
         }
 
 #region Public Functions
 
         /// <summary>
-        /// Start to connect to the remote servr.
+        /// Start to connect to the remote server.
         /// </summary>
         public void Open()
         {
@@ -202,10 +211,6 @@ namespace BestHTTP.ServerSentEvents
                 this.InternalRequest.SetHeader("Last-Event-ID", this.LastEventId);
 
             this.InternalRequest.Send();
-#else
-            this.Id = ES_Create(this.Uri.ToString(), true, OnOpenCallback, OnMessageCallback, OnErrorCallback);
-
-            EventSources.Add(this.Id, this);
 #endif
         }
 
@@ -244,6 +249,9 @@ namespace BestHTTP.ServerSentEvents
                 EventTable = new Dictionary<string, OnEventDelegate>();
 
             EventTable[eventName] = action;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            ES_AddEventHandler(this.Id, eventName);
+#endif
         }
 
         /// <summary>
@@ -252,7 +260,7 @@ namespace BestHTTP.ServerSentEvents
         /// <param name="eventName"></param>
         public void Off(string eventName)
         {
-            if (eventName == null)
+            if (eventName == null || EventTable == null)
                 return;
 
             EventTable.Remove(eventName);
@@ -316,7 +324,7 @@ namespace BestHTTP.ServerSentEvents
 #if !UNITY_WEBGL || UNITY_EDITOR
         private void Retry()
         {
-            if (RetryCount > 0 || 
+            if (RetryCount > 0 ||
                 !CallOnRetry())
             {
                 SetClosed("Retry");
@@ -403,7 +411,7 @@ namespace BestHTTP.ServerSentEvents
                         canRetry = false;
                     }
 
-                    // HTTP 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, and 504 Gateway Timeout responses, and any network error that prevents the connection 
+                    // HTTP 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, and 504 Gateway Timeout responses, and any network error that prevents the connection
                     //  from being established in the first place (e.g. DNS errors), must cause the user agent to asynchronously reestablish the connection.
                     // Any other HTTP response code not listed here must cause the user agent to fail the connection.
                     if (canRetry &&
@@ -432,7 +440,7 @@ namespace BestHTTP.ServerSentEvents
                     reason = "OnRequestFinished - Aborted without request. EventSource's State: " + this.State;
                     break;
 
-                // Ceonnecting to the server is timed out.
+                // Connecting to the server is timed out.
                 case HTTPRequestStates.ConnectionTimedOut:
                     reason = "Connection Timed Out!";
                     break;
@@ -499,7 +507,7 @@ namespace BestHTTP.ServerSentEvents
                 }
             }
 
-            if (!string.IsNullOrEmpty(message.Event))
+            if (EventTable != null && !string.IsNullOrEmpty(message.Event))
             {
                 OnEventDelegate action;
                 if (EventTable.TryGetValue(message.Event, out action))
@@ -544,9 +552,9 @@ namespace BestHTTP.ServerSentEvents
             }
         }
 #endif
-        #endregion
+#endregion
 
-        #region WebGL Static Callbacks
+#region WebGL Static Callbacks
 #if UNITY_WEBGL && !UNITY_EDITOR
 
         [AOT.MonoPInvokeCallback(typeof(OnWebGLEventSourceOpenDelegate))]
@@ -612,13 +620,19 @@ namespace BestHTTP.ServerSentEvents
         }
 
 #endif
-        #endregion
+#endregion
 
-        #region WebGL Interface
+#region WebGL Interface
 #if UNITY_WEBGL && !UNITY_EDITOR
 
         [DllImport("__Internal")]
+        static extern bool ES_IsSupported();
+
+        [DllImport("__Internal")]
         static extern uint ES_Create(string url, bool withCred, OnWebGLEventSourceOpenDelegate onOpen, OnWebGLEventSourceMessageDelegate onMessage, OnWebGLEventSourceErrorDelegate onError);
+
+        [DllImport("__Internal")]
+        static extern void ES_AddEventHandler(uint id, string eventName);
 
         [DllImport("__Internal")]
         static extern void ES_Close(uint id);
@@ -627,7 +641,7 @@ namespace BestHTTP.ServerSentEvents
         static extern void ES_Release(uint id);
 
 #endif
-        #endregion
+#endregion
 
     }
 }

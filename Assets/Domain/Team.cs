@@ -20,5 +20,10 @@ public class Team
 
     }
 
+    public GameObject get(int index)
+    {
+        return characters[index];
+    }
+
 
 }

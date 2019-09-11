@@ -586,6 +586,35 @@ namespace Org.BouncyCastle.Utilities
             return rv;
         }
 
+        public static byte[] ConcatenateAll(params byte[][] vs)
+        {
+            byte[][] nonNull = new byte[vs.Length][];
+            int count = 0;
+            int totalLength = 0;
+
+            for (int i = 0; i < vs.Length; ++i)
+            {
+                byte[] v = vs[i];
+                if (v != null)
+                {
+                    nonNull[count++] = v;
+                    totalLength += v.Length;
+                }
+            }
+
+            byte[] result = new byte[totalLength];
+            int pos = 0;
+
+            for (int j = 0; j < count; ++j)
+            {
+                byte[] v = nonNull[j];
+                Array.Copy(v, 0, result, pos, v.Length);
+                pos += v.Length;
+            }
+
+            return result;
+        }
+
         public static int[] Concatenate(int[] a, int[] b)
         {
             if (a == null)
@@ -642,6 +671,22 @@ namespace Org.BouncyCastle.Utilities
 
             int p1 = 0, p2 = a.Length;
             byte[] result = new byte[p2];
+
+            while (--p2 >= 0)
+            {
+                result[p2] = a[p1++];
+            }
+
+            return result;
+        }
+
+        public static int[] Reverse(int[] a)
+        {
+            if (a == null)
+                return null;
+
+            int p1 = 0, p2 = a.Length;
+            int[] result = new int[p2];
 
             while (--p2 >= 0)
             {

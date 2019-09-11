@@ -2,7 +2,7 @@
 using System;
 using System.IO;
 
-using Org.BouncyCastle.Asn1.Utilities;
+using Org.BouncyCastle.Utilities.IO;
 
 namespace Org.BouncyCastle.Asn1
 {
@@ -20,7 +20,7 @@ namespace Org.BouncyCastle.Asn1
 			if (length > 127)
 			{
 				int size = 1;
-				uint val = (uint) length;
+				uint val = (uint)length;
 
 				while ((val >>= 8) != 0)
 				{
@@ -44,18 +44,29 @@ namespace Org.BouncyCastle.Asn1
 			int		tag,
 			byte[]	bytes)
 		{
-			WriteByte((byte) tag);
+			WriteByte((byte)tag);
 			WriteLength(bytes.Length);
 			Write(bytes, 0, bytes.Length);
 		}
 
-		internal void WriteEncoded(
+        internal void WriteEncoded(
+            int     tag,
+            byte    first,
+            byte[]  bytes)
+        {
+            WriteByte((byte)tag);
+            WriteLength(bytes.Length + 1);
+            WriteByte(first);
+            Write(bytes, 0, bytes.Length);
+        }
+
+        internal void WriteEncoded(
 			int		tag,
 			byte[]	bytes,
 			int		offset,
 			int		length)
 		{
-			WriteByte((byte) tag);
+			WriteByte((byte)tag);
 			WriteLength(length);
 			Write(bytes, offset, length);
 		}

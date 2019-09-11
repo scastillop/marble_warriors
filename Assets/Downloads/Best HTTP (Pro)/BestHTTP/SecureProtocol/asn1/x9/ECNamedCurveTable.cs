@@ -50,6 +50,28 @@ namespace Org.BouncyCastle.Asn1.X9
             return ecP;
         }
 
+        public static string GetName(DerObjectIdentifier oid)
+        {
+            string name = X962NamedCurves.GetName(oid);
+            if (name == null)
+            {
+                name = SecNamedCurves.GetName(oid);
+            }
+            if (name == null)
+            {
+                name = NistNamedCurves.GetName(oid);
+            }
+            if (name == null)
+            {
+                name = TeleTrusTNamedCurves.GetName(oid);
+            }
+            if (name == null)
+            {
+                name = AnssiNamedCurves.GetName(oid);
+            }
+            return name;
+        }
+
         /**
          * return the object identifier signified by the passed in name. Null
          * if there is no object identifier associated with name.
@@ -99,12 +121,17 @@ namespace Org.BouncyCastle.Asn1.X9
                 ecP = SecNamedCurves.GetByOid(oid);
             }
 
+            // NOTE: All the NIST curves are currently from SEC, so no point in redundant OID lookup
+
             if (ecP == null)
             {
                 ecP = TeleTrusTNamedCurves.GetByOid(oid);
             }
 
-            // NOTE: All the NIST curves are currently from SEC, so no point in redundant OID lookup
+            if (ecP == null)
+            {
+                ecP = AnssiNamedCurves.GetByOid(oid);
+            }
 
             return ecP;
         }
@@ -118,7 +145,7 @@ namespace Org.BouncyCastle.Asn1.X9
         {
             get
             {
-                IList v = Platform.CreateArrayList();
+                IList v = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
                 CollectionUtilities.AddRange(v, X962NamedCurves.Names);
                 CollectionUtilities.AddRange(v, SecNamedCurves.Names);
                 CollectionUtilities.AddRange(v, NistNamedCurves.Names);

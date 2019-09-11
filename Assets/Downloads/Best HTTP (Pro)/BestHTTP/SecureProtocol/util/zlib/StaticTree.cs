@@ -12,8 +12,8 @@ modification, are permitted provided that the following conditions are met:
   1. Redistributions of source code must retain the above copyright notice,
      this list of conditions and the following disclaimer.
 
-  2. Redistributions in binary form must reproduce the above copyright 
-     notice, this list of conditions and the following disclaimer in 
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
      the documentation and/or other materials provided with the distribution.
 
   3. The names of the authors may not be used to endorse or promote products
@@ -48,7 +48,7 @@ namespace Org.BouncyCastle.Utilities.Zlib {
         private const int L_CODES=(LITERALS+1+LENGTH_CODES);
 
         // Bit length codes must not exceed MAX_BL_BITS bits
-        internal const int MAX_BL_BITS=7; 
+        internal const int MAX_BL_BITS=7;
 
         internal static readonly short[] static_ltree = {
                                                    12,  8, 140,  8,  76,  8, 204,  8,  44,  8,

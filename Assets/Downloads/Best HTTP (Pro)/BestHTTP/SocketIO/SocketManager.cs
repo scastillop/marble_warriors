@@ -38,7 +38,12 @@ namespace BestHTTP.SocketIO
             Open,
 
             /// <summary>
-            /// An error occured, the SocketManager now trying to connect again to the server.
+            /// Paused for transport upgrade
+            /// </summary>
+            Paused,
+
+            /// <summary>
+            /// An error occurred, the SocketManager now trying to connect again to the server.
             /// </summary>
             Reconnecting
         }
@@ -116,7 +121,7 @@ namespace BestHTTP.SocketIO
         internal UInt32 Timestamp { get { return (UInt32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalMilliseconds; } }
 
         /// <summary>
-        /// Autoincrementing property to return Ack ids.
+        /// Auto-incrementing property to return Ack ids.
         /// </summary>
         internal int NextAckId { get { return System.Threading.Interlocked.Increment(ref nextAckId); } }
         private int nextAckId;
@@ -125,6 +130,11 @@ namespace BestHTTP.SocketIO
         /// Internal property to store the previous state of the manager.
         /// </summary>
         internal States PreviousState { get; private set; }
+
+        /// <summary>
+        /// Transport currently upgrading.
+        /// </summary>
+        internal ITransport UpgradingTransport { get; set; }
 
         #endregion
 
@@ -151,11 +161,6 @@ namespace BestHTTP.SocketIO
         private DateTime LastHeartbeat = DateTime.MinValue;
 
         /// <summary>
-        /// When we received the last Pong message answering to our heartbeat(Ping) message.
-        /// </summary>
-        private DateTime LastPongReceived = DateTime.MinValue;
-
-        /// <summary>
         /// When we have to try to do a reconnect attempt
         /// </summary>
         private DateTime ReconnectAt;
@@ -169,6 +174,11 @@ namespace BestHTTP.SocketIO
         /// Private flag to avoid multiple Close call
         /// </summary>
         private bool closing;
+
+        /// <summary>
+        /// Whether the connection is waiting for a ping response.
+        /// </summary>
+        private bool IsWaitingPong;
 
         #endregion
 
@@ -261,20 +271,15 @@ namespace BestHTTP.SocketIO
 
             ReconnectAt = DateTime.MinValue;
 
-            // Start the handshake process by requesting a handshake information
-            Handshake = new HandshakeData(this);
+            switch (Options.ConnectWith)
+            {
+                case TransportTypes.Polling: Transport = new PollingTransport(this); break;
+#if !BESTHTTP_DISABLE_WEBSOCKET
+                case TransportTypes.WebSocket: Transport = new WebSocketTransport(this); break;
+#endif
+            }
+            Transport.Open();
 
-            // The handshake data received and parsed successfully -> create the supported transports
-            Handshake.OnReceived = (hsd) => CreateTransports();
-
-            // There was an error -> we will try again
-            Handshake.OnError = (hsd, err) =>
-                {
-                    (this as IManager).EmitError(SocketIOErrors.Internal, err);
-
-                    (this as IManager).TryToReconnect();
-                };
-            Handshake.Start();
 
             (this as IManager).EmitEvent("connecting");
 
@@ -329,8 +334,6 @@ namespace BestHTTP.SocketIO
             if (removeSockets)
                 Namespaces.Clear();
 
-            if (Handshake != null)
-                Handshake.Abort();
             Handshake = null;
 
             if (Transport != null)
@@ -341,7 +344,7 @@ namespace BestHTTP.SocketIO
         }
 
         /// <summary>
-        /// Called from a ITransport implemetation when an error occures and we may have to try to reconnect.
+        /// Called from a ITransport implementation when an error occurs and we may have to try to reconnect.
         /// </summary>
         void IManager.TryToReconnect()
         {
@@ -349,7 +352,7 @@ namespace BestHTTP.SocketIO
                 State == States.Closed)
                 return;
 
-            if (!Options.Reconnection)
+            if (!Options.Reconnection || HTTPManager.IsQuitting)
             {
                 Close();
 
@@ -387,23 +390,6 @@ namespace BestHTTP.SocketIO
         }
 
         /// <summary>
-        /// Creates and starts opening/upgrading process of the transports.
-        /// </summary>
-        private void CreateTransports()
-        {
-#if !BESTHTTP_DISABLE_WEBSOCKET
-            bool hasWSSupport = Handshake.Upgrades.Contains("websocket");
-
-            if (hasWSSupport)
-                Transport = new WebSocketTransport(this);
-            else
-#endif
-                Transport = new PollingTransport(this);
-
-            Transport.Open();
-        }
-
-        /// <summary>
         /// Called by transports when they are connected to the server.
         /// </summary>
         bool IManager.OnTransportConnected(ITransport trans)
@@ -416,13 +402,22 @@ namespace BestHTTP.SocketIO
 
             State = States.Open;
 
-            LastPongReceived = DateTime.UtcNow;
             ReconnectAttempts = 0;
 
             // Send out packets that we collected while there were no available transport.
             SendOfflinePackets();
 
             HTTPManager.Logger.Information("SocketManager", "Open");
+
+#if !BESTHTTP_DISABLE_WEBSOCKET
+            // Can we upgrade to WebSocket transport?
+            if (Transport.Type != TransportTypes.WebSocket &&
+                Handshake.Upgrades.Contains("websocket"))
+            {
+                UpgradingTransport = new WebSocketTransport(this);
+                UpgradingTransport.Open();
+            }
+#endif
 
             return true;
         }
@@ -431,27 +426,19 @@ namespace BestHTTP.SocketIO
         {
             (this as IManager).EmitError(SocketIOErrors.Internal, err);
 
-            if (trans.State == TransportStates.Connecting ||
-                trans.State == TransportStates.Opening)
-            {
-#if !BESTHTTP_DISABLE_WEBSOCKET
-                if (trans is WebSocketTransport)
-                {
-                    trans.Close();
+            trans.Close();
+            (this as IManager).TryToReconnect();
+        }
 
-                    // try to fall back
-                    Transport = new PollingTransport(this);
-                    Transport.Open();
-                }
-                else // fallback failed
-#endif
-                    (this as IManager).TryToReconnect();
-            }
-            else
-            {
-                trans.Close();
-                (this as IManager).TryToReconnect();
-            }
+        void IManager.OnTransportProbed(ITransport trans)
+        {
+            HTTPManager.Logger.Information("SocketManager", "\"probe\" packet received");
+
+            // If we have to reconnect, we will go straight with the transport we were able to upgrade
+            Options.ConnectWith = trans.Type;
+
+            // Pause ourself to wait for any send and receive turn to finish.
+            State = States.Paused;
         }
 
         #endregion
@@ -463,7 +450,7 @@ namespace BestHTTP.SocketIO
         /// </summary>
         private ITransport SelectTransport()
         {
-            if (State != States.Open)
+            if (State != States.Open || Transport == null)
                 return null;
 
             return Transport.IsRequestInProgress ? null : Transport;
@@ -525,12 +512,25 @@ namespace BestHTTP.SocketIO
 
             switch(packet.TransportEvent)
             {
+                case TransportEventTypes.Open:
+                    if (Handshake == null)
+                    {
+                        Handshake = new HandshakeData();
+                        if (!Handshake.Parse(packet.Payload))
+                            HTTPManager.Logger.Warning("SocketManager", "Expected handshake data, but wasn't able to pars. Payload: " + packet.Payload);
+
+                        (this as IManager).OnTransportConnected(Transport);
+
+                        return;
+                    }
+                    break;
+
                 case TransportEventTypes.Ping:
                     (this as IManager).SendPacket(new Packet(TransportEventTypes.Pong, SocketIOEventTypes.Unknown, "/", string.Empty));
                     break;
 
                 case TransportEventTypes.Pong:
-                    LastPongReceived = DateTime.UtcNow;
+                    IsWaitingPong = false;
                     break;
             }
 
@@ -590,6 +590,27 @@ namespace BestHTTP.SocketIO
         {
             switch (State)
             {
+                case States.Paused:
+                    // To ensure no messages are lost, the upgrade packet will only be sent once all the buffers of the existing transport are flushed and the transport is considered paused.
+                    if (!Transport.IsRequestInProgress &&
+                        !Transport.IsPollingInProgress)
+                    {
+                        State = States.Open;
+
+                        // Close the current transport
+                        Transport.Close();
+
+                        // and switch to the newly upgraded one
+                        Transport = UpgradingTransport;
+                        UpgradingTransport = null;
+
+                        // We will send an Upgrade("5") packet.
+                        Transport.Send(new Packet(TransportEventTypes.Upgrade, SocketIOEventTypes.Unknown, "/", string.Empty));
+
+                        goto case States.Open;
+                    }
+                    break;
+
                 case States.Opening:
                     if (DateTime.UtcNow - ConnectionStarted >= Options.Timeout)
                     {
@@ -636,16 +657,18 @@ namespace BestHTTP.SocketIO
                     }
 
                     // It's time to send out a ping event to the server
-                    if (DateTime.UtcNow - LastHeartbeat > Handshake.PingInterval)
+                    if (!IsWaitingPong && DateTime.UtcNow - LastHeartbeat > Handshake.PingInterval)
                     {
                         (this as IManager).SendPacket(new Packet(TransportEventTypes.Ping, SocketIOEventTypes.Unknown, "/", string.Empty));
 
                         LastHeartbeat = DateTime.UtcNow;
+                        IsWaitingPong = true;
                     }
 
                     // No pong event received in the given time, we are disconnected.
-                    if (DateTime.UtcNow - LastPongReceived > Handshake.PingTimeout)
+                    if (IsWaitingPong && DateTime.UtcNow - LastHeartbeat > Handshake.PingTimeout)
                     {
+                        IsWaitingPong = false;
                         (this as IManager).TryToReconnect();
                     }
 

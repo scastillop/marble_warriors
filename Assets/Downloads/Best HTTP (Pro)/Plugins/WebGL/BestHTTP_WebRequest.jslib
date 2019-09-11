@@ -1,16 +1,29 @@
 var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 {
+	/*LogLevels: {
+		All: 0,
+		Information: 1,
+		Warning: 2,
+		Error: 3,
+		Exception: 4,
+		None: 5
+	}*/
+
 	$wr: {
 		requestInstances: {},
-		nextRequestId: 1
+		nextRequestId: 1,
+		loglevel: 2
 	},
 
-	XHR_Create: function(method, url, user, passwd)
+	XHR_Create: function(method, url, user, passwd, withCredentials)
 	{
-		var _url = encodeURI(Pointer_stringify(url)).replace(/\+/g, '%2B');
+		var _url = /*encodeURI*/(Pointer_stringify(url))
+					.replace(/\+/g, '%2B')
+					.replace(/%252[fF]/ig, '%2F');
 		var _method = Pointer_stringify(method);
 
-		console.log(wr.nextRequestId + ' XHR_Create ' + _method + ' ' + _url);
+		if (wr.loglevel <= 1) /*information*/
+			console.log(wr.nextRequestId + ' XHR_Create ' + _method + ' ' + _url);
 
 		var http = new XMLHttpRequest();
 
@@ -22,8 +35,10 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 			http.withCredentials = true;
 			http.open(_method, _url, /*async:*/ true , u, p);
 		}
-		else
+		else {
+            http.withCredentials = withCredentials;
 			http.open(_method, _url, /*async:*/ true);
+        }
 
 		http.responseType = 'arraybuffer';
 
@@ -33,7 +48,8 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 
 	XHR_SetTimeout: function (request, timeout)
 	{
-		console.log(request + ' XHR_SetTimeout ' + timeout);
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_SetTimeout ' + timeout);
 
 		wr.requestInstances[request].timeout = timeout;
 	},
@@ -43,19 +59,29 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 		var _header = Pointer_stringify(header);
 		var _value = Pointer_stringify(value);
 
-		console.log(request + ' XHR_SetRequestHeader ' + _header + ' ' + _value);
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_SetRequestHeader ' + _header + ' ' + _value);
 
-		wr.requestInstances[request].setRequestHeader(_header, _value);
+        if (_header != 'Cookie')
+		    wr.requestInstances[request].setRequestHeader(_header, _value);
+        else {
+            var cookies = _value.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                document.cookie = cookies[i];
+            }
+        }
 	},
 
 	XHR_SetResponseHandler: function (request, onresponse, onerror, ontimeout, onaborted)
 	{
-		console.log(request + ' XHR_SetResponseHandler');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_SetResponseHandler');
 
 		var http = wr.requestInstances[request];
 		// LOAD
 		http.onload = function http_onload(e) {
-			console.log(request + '  - onload ' + http.status + ' ' + http.statusText);
+			if (wr.loglevel <= 1) /*information*/
+				console.log(request + '  - onload ' + http.status + ' ' + http.statusText);
 
 			if (onresponse)
 			{
@@ -78,9 +104,13 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 			http.onerror = function http_onerror(e) {
 				function HandleError(err)
 				{
-					var buffer = _malloc(err.length + 1);
-					writeStringToMemory(err, buffer);
+					var length = lengthBytesUTF8(err) + 1;
+					var buffer = _malloc(length);
+
+					stringToUTF8Array(err, HEAPU8, buffer, length);
+
 					Runtime.dynCall('vii', onerror, [request, buffer]);
+
 					_free(buffer);
 				}
 
@@ -88,30 +118,32 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 					HandleError(e.error);
 				else
 					HandleError("Unknown Error! Maybe a CORS porblem?");
-			};	
+			};
 		}
 
 		if (ontimeout)
 			http.ontimeout = function http_onerror(e) {
 				Runtime.dynCall('vi', ontimeout, [request]);
-			};	
+			};
 
 		if (onaborted)
 			http.onabort = function http_onerror(e) {
 				Runtime.dynCall('vi', onaborted, [request]);
-			};	
+			};
 	},
 
 	XHR_SetProgressHandler: function (request, onprogress, onuploadprogress)
 	{
-		console.log(request + ' XHR_SetProgressHandler');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_SetProgressHandler');
 
 		var http = wr.requestInstances[request];
 		if (http)
 		{
 			if (onprogress)
 				http.onprogress = function http_onprogress(e) {
-					console.log(request + ' XHR_SetProgressHandler - onProgress ' + e.loaded + ' ' + e.total);
+					if (wr.loglevel <= 1) /*information*/
+						console.log(request + ' XHR_SetProgressHandler - onProgress ' + e.loaded + ' ' + e.total);
 
 					if (e.lengthComputable)
 						Runtime.dynCall('viii', onprogress, [request, e.loaded, e.total]);
@@ -119,8 +151,10 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 
 			if (onuploadprogress)
 				http.upload.addEventListener("progress", function http_onprogress(e) {
-					console.log(request + ' XHR_SetProgressHandler - onUploadProgress ' + e.loaded + ' ' + e.total);
-					if (e.lengthComputable) 
+					if (wr.loglevel <= 1) /*information*/
+						console.log(request + ' XHR_SetProgressHandler - onUploadProgress ' + e.loaded + ' ' + e.total);
+
+					if (e.lengthComputable)
 						Runtime.dynCall('viii', onuploadprogress, [request, e.loaded, e.total]);
 				}, true);
 		}
@@ -128,7 +162,8 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 
 	XHR_Send: function (request, ptr, length)
 	{
-		console.log(request + ' XHR_Send ' + ptr + ' ' + length);
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_Send ' + ptr + ' ' + length);
 
 		var http = wr.requestInstances[request];
 
@@ -139,16 +174,26 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 				http.send();
 		}
 		catch(e) {
-			console.error(request + ' ' + e.name + ": " + e.message);
+			if (wr.loglevel <= 4) /*exception*/
+				console.error(request + ' ' + e.name + ": " + e.message);
 		}
 	},
 
-	XHR_GetResponseHeaders: function(request, callback) 
+	XHR_GetResponseHeaders: function(request, callback)
 	{
-		console.log(request + ' XHR_GetResponseHeaders');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_GetResponseHeaders');
 
-		var headers = wr.requestInstances[request].getAllResponseHeaders();
-		console.log('  "' + headers + '"');
+        var headers = ''
+        var cookies = document.cookie.split(';');
+        for(var i = 0; i < cookies.length; ++i)
+            headers += "Set-Cookie:" + cookies[i] + "\r\n";
+
+		headers +=  wr.requestInstances[request].getAllResponseHeaders().trim() + "\r\n";
+
+		if (wr.loglevel <= 1) { /*information*/
+			console.log('  "' + headers + '"');
+        }
 
 		var byteArray = new Uint8Array(headers.length);
 		for(var i=0,j=headers.length;i<j;++i){
@@ -163,13 +208,15 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 		_free(buffer);
 	},
 
-	XHR_GetStatusLine: function(request, callback) 
+	XHR_GetStatusLine: function(request, callback)
 	{
-		console.log(request + ' XHR_GetStatusLine');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_GetStatusLine');
 
 		var status = "HTTP/1.1 " + wr.requestInstances[request].status + " " + wr.requestInstances[request].statusText;
 
-		console.log(status);
+		if (wr.loglevel <= 1) /*information*/
+			console.log(status);
 
 		var byteArray = new Uint8Array(status.length);
 		for(var i=0,j=status.length;i<j;++i){
@@ -185,16 +232,23 @@ var Lib_BEST_HTTP_WebGL_HTTP_Bridge =
 
 	XHR_Abort: function (request)
 	{
-		console.log(request + ' XHR_Abort');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_Abort');
 
 		wr.requestInstances[request].abort();
 	},
 
 	XHR_Release: function (request)
 	{
-		console.log(request + ' XHR_Release');
+		if (wr.loglevel <= 1) /*information*/
+			console.log(request + ' XHR_Release');
 
 		delete wr.requestInstances[request];
+	},
+
+	XHR_SetLoglevel: function (level)
+	{
+		wr.loglevel = level;
 	}
 };
 

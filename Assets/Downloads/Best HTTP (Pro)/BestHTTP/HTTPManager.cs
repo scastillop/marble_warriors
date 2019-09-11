@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 
-using UnityEngine;
-
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
     using BestHTTP.Caching;
 #endif
@@ -24,10 +22,17 @@ namespace BestHTTP
             MaxConnectionPerServer = 4;
             KeepAliveDefaultValue = true;
             MaxPathLength = 255;
-            MaxConnectionIdleTime = TimeSpan.FromSeconds(30);
+            MaxConnectionIdleTime = TimeSpan.FromSeconds(20);
 
-#if !BESTHTTP_DISABLE_COOKIES && (!UNITY_WEBGL || UNITY_EDITOR)
+#if !BESTHTTP_DISABLE_COOKIES //&& (!UNITY_WEBGL || UNITY_EDITOR)
+#if UNITY_WEBGL
+            // Under webgl when IsCookiesEnabled is true, it will set the withCredentials flag for the XmlHTTPRequest
+            //  and that's different from the default behavior.
+            // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials
+            IsCookiesEnabled = false;
+#else
             IsCookiesEnabled = true;
+#endif
 #endif
 
             CookieJarSize = 10 * 1024 * 1024;
@@ -40,14 +45,14 @@ namespace BestHTTP
 
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
             DefaultCertificateVerifyer = null;
-            UseAlternateSSLDefaultValue = false;
+            UseAlternateSSLDefaultValue = true;
 #endif
         }
 
         #region Global Options
 
         /// <summary>
-        /// The maximum active tcp connections that the client will maintain to a server. Default value is 4. Minimum value is 1.
+        /// The maximum active TCP connections that the client will maintain to a server. Default value is 4. Minimum value is 1.
         /// </summary>
         public static byte MaxConnectionPerServer
         {
@@ -62,7 +67,7 @@ namespace BestHTTP
         private static byte maxConnectionPerServer;
 
         /// <summary>
-        /// Default value of a http request's IsKeepAlive value. Default value is true. If you make rare request to the server it's should be changed to false.
+        /// Default value of a HTTP request's IsKeepAlive value. Default value is true. If you make rare request to the server it should be changed to false.
         /// </summary>
         public static bool KeepAliveDefaultValue { get; set; }
 
@@ -74,11 +79,11 @@ namespace BestHTTP
 #endif
 
         /// <summary>
-        /// How many time must be passed to destroy that connection after a connection finished it's last request. It's default value is 30 seconds.
+        /// How many time must be passed to destroy that connection after a connection finished its last request. Its default value is 20 seconds.
         /// </summary>
         public static TimeSpan MaxConnectionIdleTime { get; set; }
 
-#if !BESTHTTP_DISABLE_COOKIES && (!UNITY_WEBGL || UNITY_EDITOR)
+#if !BESTHTTP_DISABLE_COOKIES //&& (!UNITY_WEBGL || UNITY_EDITOR)
         /// <summary>
         /// Set to false to disable all Cookie. It's default value is true.
         /// </summary>
@@ -91,12 +96,12 @@ namespace BestHTTP
         public static uint CookieJarSize { get; set; }
 
         /// <summary>
-        /// If this property is set to true, then new cookies treated as session cookies and these cookies are not saved to disk. It's default value is false;
+        /// If this property is set to true, then new cookies treated as session cookies and these cookies are not saved to disk. Its default value is false;
         /// </summary>
         public static bool EnablePrivateBrowsing { get; set; }
 
         /// <summary>
-        /// Global, default value of the HTTPRequest's ConnectTimeout property. Default value is 20 seconds.
+        /// Global, default value of the HTTPRequest's ConnectTimeout property. If set to TimeSpan.Zero or lower, no connect timeout logic is executed. Default value is 20 seconds.
         /// </summary>
         public static TimeSpan ConnectTimeout { get; set; }
 
@@ -118,7 +123,7 @@ namespace BestHTTP
         /// <summary>
         /// The global, default proxy for all HTTPRequests. The HTTPRequest's Proxy still can be changed per-request. Default value is null.
         /// </summary>
-        public static HTTPProxy Proxy { get; set; }
+        public static Proxy Proxy { get; set; }
 #endif
 
         /// <summary>
@@ -173,8 +178,20 @@ namespace BestHTTP
         public static bool UseAlternateSSLDefaultValue { get; set; }
 #endif
 
+#if !NETFX_CORE && !UNITY_WP8
+        public static Func<HTTPRequest, System.Security.Cryptography.X509Certificates.X509Certificate, System.Security.Cryptography.X509Certificates.X509Chain, bool> DefaultCertificationValidator { get; set; }
+#endif
+
         /// <summary>
-        /// On most systems the maximum length of a path is around 255 character. If a cache entity's path is longer than this value it doesn't get cached. There no patform independent API to query the exact value on the current system, but it's
+        /// Setting this option to true, the processing connection will set the TCP NoDelay option to send out data as soon as it can.
+        /// </summary>
+        public static bool TryToMinimizeTCPLatency = false;
+
+        public static int SendBufferSize = 65 * 1024;
+        public static int ReceiveBufferSize = 65 * 1024;
+
+        /// <summary>
+        /// On most systems the maximum length of a path is around 255 character. If a cache entity's path is longer than this value it doesn't get cached. There no platform independent API to query the exact value on the current system, but it's
         /// exposed here and can be overridden. It's default value is 255.
         /// </summary>
         internal static int MaxPathLength { get; set; }
@@ -184,7 +201,7 @@ namespace BestHTTP
         #region Manager variables
 
         /// <summary>
-        /// All connection has a reference in this Dictionary untill it's removed completly.
+        /// All connection has a reference in this Dictionary until it's removed completely.
         /// </summary>
         private static Dictionary<string, List<ConnectionBase>> Connections = new Dictionary<string, List<ConnectionBase>>();
 
@@ -194,7 +211,7 @@ namespace BestHTTP
         private static List<ConnectionBase> ActiveConnections = new List<ConnectionBase>();
 
         /// <summary>
-        /// Free connections. They can be removed completly after a specified time.
+        /// Free connections. They can be removed completely after a specified time.
         /// </summary>
         private static List<ConnectionBase> FreeConnections = new List<ConnectionBase>();
 
@@ -211,6 +228,8 @@ namespace BestHTTP
 
         internal static System.Object Locker = new System.Object();
 
+        internal static bool IsQuitting { get; private set; }
+
         #endregion
 
         #region Public Interface
@@ -223,7 +242,7 @@ namespace BestHTTP
             HTTPCacheService.CheckSetup();
 #endif
 
-#if !BESTHTTP_DISABLE_COOKIES && (!UNITY_WEBGL || UNITY_EDITOR)
+#if !BESTHTTP_DISABLE_COOKIES //&& (!UNITY_WEBGL || UNITY_EDITOR)
             Cookies.CookieJar.SetupFolder();
 #endif
         }
@@ -254,8 +273,6 @@ namespace BestHTTP
             {
                 Setup();
 
-                // TODO: itt meg csak adja hozza egy sorhoz, es majd a LateUpdate-ben hivodjon a SendRequestImpl.
-                //  Igy ha egy callback-ben kuldenenk ugyanarra a szerverre request-et, akkor feltudjuk hasznalni az elozo connection-t.
                 if (IsCallingCallbacks)
                 {
                     request.State = HTTPRequestStates.Queued;
@@ -306,7 +323,7 @@ namespace BestHTTP
             }
 #endif
 
-#if !BESTHTTP_DISABLE_COOKIES && (!UNITY_WEBGL || UNITY_EDITOR)
+#if !BESTHTTP_DISABLE_COOKIES //&& (!UNITY_WEBGL || UNITY_EDITOR)
             if ((queryFlags & StatisticsQueryFlags.Cookies) != 0)
             {
                 List<Cookies.Cookie> cookies = Cookies.CookieJar.GetAll();
@@ -371,7 +388,7 @@ namespace BestHTTP
         /// </summary>
         private static ConnectionBase CreateConnection(HTTPRequest request, string serverUrl)
         {
-            if (request.CurrentUri.IsFile)
+            if (request.CurrentUri.IsFile && UnityEngine.Application.platform != UnityEngine.RuntimePlatform.WebGLPlayer)
                 return new FileConnection(serverUrl);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -502,7 +519,7 @@ namespace BestHTTP
 #if NETFX_CORE
             return Windows.Storage.ApplicationData.Current.LocalFolder.Path;
 #else
-            return Application.persistentDataPath;
+            return UnityEngine.Application.persistentDataPath;
 #endif
         }
 #endif
@@ -516,179 +533,207 @@ namespace BestHTTP
         /// </summary>
         public static void OnUpdate()
         {
-            lock (Locker)
+            // We will try to acquire a lock. If it fails, we will skip this frame without calling any callback.
+            if (System.Threading.Monitor.TryEnter(Locker))
             {
-                IsCallingCallbacks = true;
                 try
                 {
-                    for (int i = 0; i < ActiveConnections.Count; ++i)
+                    IsCallingCallbacks = true;
+                    try
                     {
-                        ConnectionBase conn = ActiveConnections[i];
-
-                        switch (conn.State)
+                        for (int i = 0; i < ActiveConnections.Count; ++i)
                         {
-                            case HTTPConnectionStates.Processing:
-                                conn.HandleProgressCallback();
+                            ConnectionBase conn = ActiveConnections[i];
 
-                                if (conn.CurrentRequest.UseStreaming && conn.CurrentRequest.Response != null && conn.CurrentRequest.Response.HasStreamedFragments())
-                                    conn.HandleCallback();
+                            switch (conn.State)
+                            {
+                                case HTTPConnectionStates.Processing:
+                                    conn.HandleProgressCallback();
 
-                                if (((!conn.CurrentRequest.UseStreaming && conn.CurrentRequest.UploadStream == null) || conn.CurrentRequest.EnableTimoutForStreaming) &&
-                                    DateTime.UtcNow - conn.StartTime > conn.CurrentRequest.Timeout)
-                                    conn.Abort(HTTPConnectionStates.TimedOut);
+                                    if (conn.CurrentRequest.UseStreaming && conn.CurrentRequest.Response != null && conn.CurrentRequest.Response.HasStreamedFragments())
+                                        conn.HandleCallback();
 
-                                break;
-
-                            case HTTPConnectionStates.TimedOut:
-                                // The connection is still in TimedOut state, and if we waited enough time, we will dispatch the
-                                //  callback and recycle the connection
-                                if (DateTime.UtcNow - conn.TimedOutStart > TimeSpan.FromMilliseconds(500))
-                                {
-                                    HTTPManager.Logger.Information("HTTPManager", "Hard aborting connection becouse of a long waiting TimedOut state");
-
-                                    conn.CurrentRequest.Response = null;
-                                    conn.CurrentRequest.State = HTTPRequestStates.TimedOut;
-                                    conn.HandleCallback();
-
-                                    // this will set the connection's CurrentRequest to null
-                                    RecycleConnection(conn);
-                                }
-                                break;
-
-                            case HTTPConnectionStates.Redirected:
-                                // If the server redirected us, we need to find or create a connection to the new server and send out the request again.
-                                SendRequest(conn.CurrentRequest);
-
-                                RecycleConnection(conn);
-                                break;
-
-                            case HTTPConnectionStates.WaitForRecycle:
-                                // If it's a streamed request, it's finished now
-                                conn.CurrentRequest.FinishStreaming();
-
-                                // Call the callback
-                                conn.HandleCallback();
-
-                                // Then recycle the connection
-                                RecycleConnection(conn);
-                                break;
-
-                            case HTTPConnectionStates.Upgraded:
-                                // The connection upgraded to an other protocol
-                                conn.HandleCallback();
-                                break;
-
-                            case HTTPConnectionStates.WaitForProtocolShutdown:
-                                var ws = conn.CurrentRequest.Response as IProtocol;
-                                if (ws != null)
-                                    ws.HandleEvents();
-
-                                if (ws == null || ws.IsClosed)
-                                {
-                                    conn.HandleCallback();
-
-                                    // After both sending and receiving a Close message, an endpoint considers the WebSocket connection closed and MUST close the underlying TCP connection.
-                                    conn.Dispose();
-                                    RecycleConnection(conn);
-                                }
-                                break;
-
-                            case HTTPConnectionStates.AbortRequested:
-                                // Corner case: we aborted a WebSocket connection
-                                {
-                                    ws = conn.CurrentRequest.Response as IProtocol;
-                                    if (ws != null)
+                                    try
                                     {
-                                        ws.HandleEvents();
+                                        if (((!conn.CurrentRequest.UseStreaming && conn.CurrentRequest.UploadStream == null) || conn.CurrentRequest.EnableTimoutForStreaming) &&
+                                            DateTime.UtcNow - conn.StartTime > conn.CurrentRequest.Timeout)
+                                            conn.Abort(HTTPConnectionStates.TimedOut);
+                                    }
+                                    catch (OverflowException)
+                                    {
+                                        HTTPManager.Logger.Warning("HTTPManager", "TimeSpan overflow");
+                                    }
+                                    break;
 
-                                        if (ws.IsClosed)
+                                case HTTPConnectionStates.TimedOut:
+                                    // The connection is still in TimedOut state, and if we waited enough time, we will dispatch the
+                                    //  callback and recycle the connection
+                                    try
+                                    {
+                                        if (DateTime.UtcNow - conn.TimedOutStart > TimeSpan.FromMilliseconds(500))
                                         {
-                                            conn.HandleCallback();
-                                            conn.Dispose();
+                                            HTTPManager.Logger.Information("HTTPManager", "Hard aborting connection because of a long waiting TimedOut state");
 
+                                            conn.CurrentRequest.Response = null;
+                                            conn.CurrentRequest.State = HTTPRequestStates.TimedOut;
+                                            conn.HandleCallback();
+
+                                            // this will set the connection's CurrentRequest to null
                                             RecycleConnection(conn);
                                         }
                                     }
-                                }
-                                break;
+                                    catch(OverflowException)
+                                    {
+                                        HTTPManager.Logger.Warning("HTTPManager", "TimeSpan overflow");
+                                    }
+                                    break;
 
-                            case HTTPConnectionStates.Closed:
-                                // If it's a streamed request, it's finished now
-                                conn.CurrentRequest.FinishStreaming();
+                                case HTTPConnectionStates.Redirected:
+                                    // If the server redirected us, we need to find or create a connection to the new server and send out the request again.
+                                    SendRequest(conn.CurrentRequest);
 
-                                // Call the callback
-                                conn.HandleCallback();
+                                    RecycleConnection(conn);
+                                    break;
 
-                                // It will remove from the ActiveConnections
-                                RecycleConnection(conn);
-                                break;
+                                case HTTPConnectionStates.WaitForRecycle:
+                                    // If it's a streamed request, it's finished now
+                                    conn.CurrentRequest.FinishStreaming();
 
-                            case HTTPConnectionStates.Free:
-                                RecycleConnection(conn);
-                                break;
+                                    // Call the callback
+                                    conn.HandleCallback();
+
+                                    // Then recycle the connection
+                                    RecycleConnection(conn);
+                                    break;
+
+                                case HTTPConnectionStates.Upgraded:
+                                    // The connection upgraded to an other protocol
+                                    conn.HandleCallback();
+                                    break;
+
+                                case HTTPConnectionStates.WaitForProtocolShutdown:
+                                    var ws = conn.CurrentRequest.Response as IProtocol;
+                                    if (ws != null)
+                                        ws.HandleEvents();
+
+                                    if (ws == null || ws.IsClosed)
+                                    {
+                                        conn.HandleCallback();
+
+                                        // After both sending and receiving a Close message, an endpoint considers the WebSocket connection closed and MUST close the underlying TCP connection.
+                                        conn.Dispose();
+                                        RecycleConnection(conn);
+                                    }
+                                    break;
+
+                                case HTTPConnectionStates.AbortRequested:
+                                    // Corner case: we aborted a WebSocket connection
+                                    {
+                                        ws = conn.CurrentRequest.Response as IProtocol;
+                                        if (ws != null)
+                                        {
+                                            ws.HandleEvents();
+
+                                            if (ws.IsClosed)
+                                            {
+                                                conn.HandleCallback();
+                                                conn.Dispose();
+
+                                                RecycleConnection(conn);
+                                            }
+                                        }
+                                    }
+                                    break;
+
+                                case HTTPConnectionStates.Closed:
+                                    // If it's a streamed request, it's finished now
+                                    conn.CurrentRequest.FinishStreaming();
+
+                                    // Call the callback
+                                    conn.HandleCallback();
+
+                                    // It will remove from the ActiveConnections
+                                    RecycleConnection(conn);
+                                    break;
+
+                                case HTTPConnectionStates.Free:
+                                    RecycleConnection(conn);
+                                    break;
+                            }
                         }
+                    }
+                    finally
+                    {
+                        IsCallingCallbacks = false;
+                    }
+
+                    // Just try to grab the lock, if we can't have it we can wait another turn because it isn't
+                    //  critical to do it right now.
+                    if (System.Threading.Monitor.TryEnter(RecycledConnections))
+                        try
+                        {
+                            if (RecycledConnections.Count > 0)
+                            {
+                                for (int i = 0; i < RecycledConnections.Count; ++i)
+                                {
+                                    var connection = RecycledConnections[i];
+                                    // If in a callback made a request that acquired this connection, then we will not remove it from the
+                                    //  active connections.
+                                    if (connection.IsFree)
+                                    {
+                                        ActiveConnections.Remove(connection);
+                                        FreeConnections.Add(connection);
+                                    }
+                                }
+                                RecycledConnections.Clear();
+                            }
+                        }
+                        finally
+                        {
+                            System.Threading.Monitor.Exit(RecycledConnections);
+                        }
+
+                    if (FreeConnections.Count > 0)
+                        for (int i = 0; i < FreeConnections.Count; i++)
+                        {
+                            var connection = FreeConnections[i];
+
+                            if (connection.IsRemovable)
+                            {
+                                // Remove the connection from the connection reference table
+                                List<ConnectionBase> connections = null;
+                                if (Connections.TryGetValue(connection.ServerAddress, out connections))
+                                    connections.Remove(connection);
+
+                                // Dispose the connection
+                                connection.Dispose();
+
+                                FreeConnections.RemoveAt(i);
+                                i--;
+                            }
+                        }
+
+
+                    if (CanProcessFromQueue())
+                    {
+                        // Sort the queue by priority, only if we have to
+                        if (RequestQueue.Find((req) => req.Priority != 0) != null)
+                            RequestQueue.Sort((req1, req2) => req1.Priority - req2.Priority);
+
+                        // Create an array from the queue and clear it. When we call the SendRequest while still no room for new connections, the same queue will be rebuilt.
+
+                        var queue = RequestQueue.ToArray();
+                        RequestQueue.Clear();
+
+                        for (int i = 0; i < queue.Length; ++i)
+                            SendRequest(queue[i]);
                     }
                 }
                 finally
                 {
-                    IsCallingCallbacks = false;
+                    System.Threading.Monitor.Exit(Locker);
                 }
-
-                lock (RecycledConnections)
-                {
-                    if (RecycledConnections.Count > 0)
-                    {
-                        for (int i = 0; i < RecycledConnections.Count; ++i)
-                        {
-                            var connection = RecycledConnections[i];
-                            // If in a callback made a request that aquired this connection, then we will not remove it from the
-                            //  active connections.
-                            if (connection.IsFree)
-                            {
-                                ActiveConnections.Remove(connection);
-                                FreeConnections.Add(connection);
-                            }
-                        }
-                        RecycledConnections.Clear();
-                    }
-                }
-
-                if (FreeConnections.Count > 0)
-                    for (int i = 0; i < FreeConnections.Count; i++)
-                    {
-                        var connection = FreeConnections[i];
-
-                        if (connection.IsRemovable)
-                        {
-                            // Remove the connection from the connection reference table
-                            List<ConnectionBase> connections = null;
-                            if (Connections.TryGetValue(connection.ServerAddress, out connections))
-                                connections.Remove(connection);
-
-                            // Dispose the connection
-                            connection.Dispose();
-
-                            FreeConnections.RemoveAt(i);
-                            i--;
-                        }
-                    }
-
-
-                if (CanProcessFromQueue())
-                {
-                    // Sort the queue by priority, only if we have to
-                    if (RequestQueue.Find((req) => req.Priority != 0) != null)
-                        RequestQueue.Sort((req1, req2) => req1.Priority - req2.Priority);
-
-                    // Create an array from the queue and clear it. When we call the SendRequest while still no room for new connections, the same queue will be rebuilt.
-
-                    var queue = RequestQueue.ToArray();
-                    RequestQueue.Clear();
-
-                    for (int i = 0; i < queue.Length; ++i)
-                        SendRequest(queue[i]);
-                }
-            } // lock(Locker)
+            }
 
             if (heartbeats != null)
                 heartbeats.Update();
@@ -698,28 +743,62 @@ namespace BestHTTP
         {
             lock (Locker)
             {
+                IsQuitting = true;
+
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
                 Caching.HTTPCacheService.SaveLibrary();
 #endif
 
+#if !BESTHTTP_DISABLE_COOKIES //&& (!UNITY_WEBGL || UNITY_EDITOR)
+                Cookies.CookieJar.Persist();
+#endif
+
+                AbortAll(true);
+
+                OnUpdate();
+            }
+        }
+
+        public static void AbortAll(bool allowCallbacks = false)
+        {
+            lock (Locker)
+            {
                 var queue = RequestQueue.ToArray();
                 RequestQueue.Clear();
                 foreach (var req in queue)
-                    req.Abort();
+                {
+                    // Swallow any exceptions, we are quitting anyway.
+                    try
+                    {
+                        if (!allowCallbacks)
+                            req.Callback = null;
+                        req.Abort();
+                    }
+                    catch { }
+                }
 
-                // Close all tcp connections when the application is terminating.
+                // Close all TCP connections when the application is terminating.
                 foreach (var kvp in Connections)
                 {
                     foreach (var conn in kvp.Value)
                     {
-                        conn.Abort(HTTPConnectionStates.Closed);
-                        conn.Dispose();
+                        // Swallow any exceptions, we are quitting anyway.
+                        try
+                        {
+                            if (conn.CurrentRequest != null)
+                            {
+                                if (!allowCallbacks)
+                                    conn.CurrentRequest.Callback = null;
+                                conn.CurrentRequest.State = HTTPRequestStates.Aborted;
+                            }
+                            conn.Abort(HTTPConnectionStates.Closed);
+                            conn.Dispose();
+                        }
+                        catch { }
                     }
                     kvp.Value.Clear();
                 }
                 Connections.Clear();
-
-                OnUpdate();
             }
         }
 

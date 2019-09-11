@@ -4,6 +4,7 @@ using System;
 
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Utilities;
+using Org.BouncyCastle.Utilities;
 
 namespace Org.BouncyCastle.Crypto.Engines
 {
@@ -93,6 +94,7 @@ namespace Org.BouncyCastle.Crypto.Engines
 				iv = newIV;
 			}
 
+            idx = 0;
 			cnt = 0;
 
 			uint[] w = new uint[2560];
@@ -166,7 +168,7 @@ namespace Org.BouncyCastle.Crypto.Engines
 			else
 			{
 				throw new ArgumentException(
-					"Invalid parameter passed to HC256 init - " + parameters.GetType().Name,
+					"Invalid parameter passed to HC256 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters),
 					"parameters");
 			}
 
@@ -208,7 +210,6 @@ namespace Org.BouncyCastle.Crypto.Engines
 
         public virtual void Reset()
 		{
-			idx = 0;
 			Init();
 		}
 

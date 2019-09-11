@@ -4,6 +4,15 @@ using System.Collections.Generic;
 
 namespace BestHTTP.SocketIO.Transports
 {
+    public enum TransportTypes
+    {
+        Polling,
+
+#if !BESTHTTP_DISABLE_WEBSOCKET
+        WebSocket
+#endif
+    }
+
     /// <summary>
     /// Possible states of an ITransport implementation.
     /// </summary>
@@ -41,6 +50,11 @@ namespace BestHTTP.SocketIO.Transports
     public interface ITransport
     {
         /// <summary>
+        /// Type of this transport.
+        /// </summary>
+        TransportTypes Type { get; }
+
+        /// <summary>
         /// Current state of the transport
         /// </summary>
         TransportStates State { get; }
@@ -54,6 +68,11 @@ namespace BestHTTP.SocketIO.Transports
         /// True if the transport is busy with sending messages.
         /// </summary>
         bool IsRequestInProgress { get; }
+
+        /// <summary>
+        /// True if the transport is busy with a poll request.
+        /// </summary>
+        bool IsPollingInProgress { get; }
 
         /// <summary>
         /// Start open/upgrade the transport.

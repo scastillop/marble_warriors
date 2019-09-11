@@ -73,7 +73,7 @@ namespace Org.BouncyCastle.Crypto.Tls
 
             ServerDHParams dhParams = ServerDHParams.Parse(teeIn);
 
-            DigitallySigned signed_params = DigitallySigned.Parse(mContext, input);
+            DigitallySigned signed_params = ParseSignature(input);
 
             ISigner signer = InitVerifyer(mTlsSigner, signed_params.Algorithm, securityParameters);
             buf.UpdateSigner(signer);
@@ -81,7 +81,7 @@ namespace Org.BouncyCastle.Crypto.Tls
                 throw new TlsFatalAlert(AlertDescription.decrypt_error);
 
             this.mDHAgreePublicKey = TlsDHUtilities.ValidateDHPublicKey(dhParams.PublicKey);
-            this.mDHParameters = mDHAgreePublicKey.Parameters;
+            this.mDHParameters = ValidateDHParameters(mDHAgreePublicKey.Parameters);
         }
 
         protected virtual ISigner InitVerifyer(TlsSigner tlsSigner, SignatureAndHashAlgorithm algorithm,

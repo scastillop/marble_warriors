@@ -91,7 +91,8 @@ namespace BestHTTP.Forms
             HTTPFieldData field = new HTTPFieldData();
             field.Name = fieldName;
             field.FileName = null;
-            field.MimeType = "text/plain; charset=\"" + e.WebName + "\"";
+            if (e != null)
+                field.MimeType = "text/plain; charset=" + e.WebName;
             field.Text = value;
             field.Encoding = e;
 

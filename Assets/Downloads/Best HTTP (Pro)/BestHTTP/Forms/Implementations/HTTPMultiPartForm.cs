@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using BestHTTP;
-using BestHTTP.Forms;
 using BestHTTP.Extensions;
 
 namespace BestHTTP.Forms
@@ -19,7 +15,7 @@ namespace BestHTTP.Forms
         private string Boundary;
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         private byte[] CachedData;
 
@@ -27,7 +23,7 @@ namespace BestHTTP.Forms
 
         public HTTPMultiPartForm()
         {
-            this.Boundary = this.GetHashCode().ToString("X");
+            this.Boundary = "BestHTTP_HTTPMultiPartForm_" + this.GetHashCode().ToString("X");
         }
 
         #region IHTTPForm Implementation

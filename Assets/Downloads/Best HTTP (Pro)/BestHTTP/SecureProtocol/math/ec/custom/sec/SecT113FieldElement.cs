@@ -14,7 +14,7 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
 
         public SecT113FieldElement(BigInteger x)
         {
-            if (x == null || x.SignValue < 0)
+            if (x == null || x.SignValue < 0 || x.BitLength > 113)
                 throw new ArgumentException("value invalid for SecT113FieldElement", "x");
 
             this.x = SecT113Field.FromBigInteger(x);
@@ -154,13 +154,16 @@ namespace Org.BouncyCastle.Math.EC.Custom.Sec
 
         public override ECFieldElement Invert()
         {
-            return new SecT113FieldElement(
-                AbstractF2mCurve.Inverse(113, new int[]{ 9 }, ToBigInteger()));
+            ulong[] z = Nat128.Create64();
+            SecT113Field.Invert(x, z);
+            return new SecT113FieldElement(z);
         }
 
         public override ECFieldElement Sqrt()
         {
-            return SquarePow(M - 1);
+            ulong[] z = Nat128.Create64();
+            SecT113Field.Sqrt(x, z);
+            return new SecT113FieldElement(z);
         }
 
         public virtual int Representation

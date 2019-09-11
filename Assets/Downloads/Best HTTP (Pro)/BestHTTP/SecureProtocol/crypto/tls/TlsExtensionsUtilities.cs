@@ -12,7 +12,7 @@ namespace Org.BouncyCastle.Crypto.Tls
     {
         public static IDictionary EnsureExtensionsInitialised(IDictionary extensions)
         {
-            return extensions == null ? Platform.CreateHashtable() : extensions;
+            return extensions == null ? Org.BouncyCastle.Utilities.Platform.CreateHashtable() : extensions;
         }
 
         public static void AddEncryptThenMacExtension(IDictionary extensions)
@@ -35,6 +35,12 @@ namespace Org.BouncyCastle.Crypto.Tls
         public static void AddMaxFragmentLengthExtension(IDictionary extensions, byte maxFragmentLength)
         {
             extensions[ExtensionType.max_fragment_length] = CreateMaxFragmentLengthExtension(maxFragmentLength);
+        }
+
+        /// <exception cref="IOException"></exception>
+        public static void AddPaddingExtension(IDictionary extensions, int dataLength)
+        {
+            extensions[ExtensionType.padding] = CreatePaddingExtension(dataLength);
         }
 
         /// <exception cref="IOException"></exception>
@@ -66,6 +72,13 @@ namespace Org.BouncyCastle.Crypto.Tls
         {
             byte[] extensionData = TlsUtilities.GetExtensionData(extensions, ExtensionType.max_fragment_length);
             return extensionData == null ? (short)-1 : (short)ReadMaxFragmentLengthExtension(extensionData);
+        }
+
+        /// <exception cref="IOException"></exception>
+        public static int GetPaddingExtension(IDictionary extensions)
+        {
+            byte[] extensionData = TlsUtilities.GetExtensionData(extensions, ExtensionType.padding);
+            return extensionData == null ? -1 : ReadPaddingExtension(extensionData);
         }
 
         /// <exception cref="IOException"></exception>
@@ -135,6 +148,13 @@ namespace Org.BouncyCastle.Crypto.Tls
         public static byte[] CreateMaxFragmentLengthExtension(byte maxFragmentLength)
         {
             return new byte[]{ maxFragmentLength };
+        }
+
+        /// <exception cref="IOException"></exception>
+        public static byte[] CreatePaddingExtension(int dataLength)
+        {
+            TlsUtilities.CheckUint16(dataLength);
+            return new byte[dataLength];
         }
 
         /// <exception cref="IOException"></exception>
@@ -219,6 +239,20 @@ namespace Org.BouncyCastle.Crypto.Tls
                 throw new TlsFatalAlert(AlertDescription.decode_error);
 
             return extensionData[0];
+        }
+
+        /// <exception cref="IOException"></exception>
+        public static int ReadPaddingExtension(byte[] extensionData)
+        {
+            if (extensionData == null)
+                throw new ArgumentNullException("extensionData");
+
+            for (int i = 0; i < extensionData.Length; ++i)
+            {
+                if (extensionData[i] != 0)
+                    throw new TlsFatalAlert(AlertDescription.illegal_parameter);
+            }
+            return extensionData.Length;
         }
 
         /// <exception cref="IOException"></exception>

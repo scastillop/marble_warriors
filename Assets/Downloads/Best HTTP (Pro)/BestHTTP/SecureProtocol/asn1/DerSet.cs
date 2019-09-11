@@ -1,6 +1,8 @@
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
 using System.IO;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Asn1
 {
 	/**
@@ -99,9 +101,9 @@ namespace Org.BouncyCastle.Asn1
 				dOut.WriteObject(obj);
 			}
 
-			dOut.Dispose();
+            Org.BouncyCastle.Utilities.Platform.Dispose(dOut);
 
-			byte[] bytes = bOut.ToArray();
+            byte[] bytes = bOut.ToArray();
 
 			derOut.WriteEncoded(Asn1Tags.Set | Asn1Tags.Constructed, bytes);
 		}

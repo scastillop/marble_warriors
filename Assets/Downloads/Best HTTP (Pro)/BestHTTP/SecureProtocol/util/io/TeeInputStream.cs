@@ -20,20 +20,26 @@ namespace Org.BouncyCastle.Utilities.IO
 			this.tee = tee;
 		}
 
-        protected override void Dispose(bool isDisposing)
+#if PORTABLE || NETFX_CORE
+        protected override void Dispose(bool disposing)
         {
-            try
+            if (disposing)
             {
-                input.Dispose();
-                tee.Dispose();
+                Org.BouncyCastle.Utilities.Platform.Dispose(input);
+                Org.BouncyCastle.Utilities.Platform.Dispose(tee);
             }
-            finally
-            {
-                base.Dispose(isDisposing);
-            }
+            base.Dispose(disposing);
         }
+#else
+        public override void Close()
+		{
+            Org.BouncyCastle.Utilities.Platform.Dispose(input);
+            Org.BouncyCastle.Utilities.Platform.Dispose(tee);
+            base.Close();
+		}
+#endif
 
-		public override int Read(byte[] buf, int off, int len)
+        public override int Read(byte[] buf, int off, int len)
 		{
 			int i = input.Read(buf, off, len);
 

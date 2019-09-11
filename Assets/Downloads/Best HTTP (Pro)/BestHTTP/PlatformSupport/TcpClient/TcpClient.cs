@@ -21,10 +21,10 @@
 // distribute, sublicense, and/or sell copies of the Software, and to
 // permit persons to whom the Software is furnished to do so, subject to
 // the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 // MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -80,7 +80,7 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
         public TcpClient()
         {
             Init(AddressFamily.InterNetwork);
-            client.Bind(new IPEndPoint(IPAddress.Any, 0));
+            //client.Bind(new IPEndPoint(IPAddress.Any, 0));
 
             ConnectTimeout = TimeSpan.FromSeconds(2);
         }
@@ -94,10 +94,10 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
             }
 
             Init(family);
-            IPAddress any = IPAddress.Any;
+            /*IPAddress any = IPAddress.Any;
             if (family == AddressFamily.InterNetworkV6)
                 any = IPAddress.IPv6Any;
-            client.Bind(new IPEndPoint(any, 0));
+            client.Bind(new IPEndPoint(any, 0));*/
 
             ConnectTimeout = TimeSpan.FromSeconds(2);
         }
@@ -105,7 +105,7 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
         public TcpClient(IPEndPoint localEP)
         {
             Init(localEP.AddressFamily);
-            client.Bind(localEP);
+            //client.Bind(localEP);
 
             ConnectTimeout = TimeSpan.FromSeconds(2);
         }
@@ -332,42 +332,47 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
         {
             try
             {
-                // Third version, works in WebPlayer
-                System.Threading.ManualResetEvent mre = new System.Threading.ManualResetEvent(false);
-                IAsyncResult result = client.BeginConnect(remoteEP, (res) => mre.Set(), null);
-                active = mre.WaitOne(ConnectTimeout);
-                if (active)
-                    client.EndConnect(result);
-                else
+                if (ConnectTimeout > TimeSpan.Zero)
                 {
-                    try
+                    // Third version, works in WebPlayer
+                    System.Threading.ManualResetEvent mre = new System.Threading.ManualResetEvent(false);
+                    IAsyncResult result = client.BeginConnect(remoteEP, (res) => mre.Set(), null);
+                    active = mre.WaitOne(ConnectTimeout);
+                    if (active)
+                        client.EndConnect(result);
+                    else
+                    {
+                        try
+                        {
+                            client.Disconnect(true);
+                        }
+                        catch
+                        { }
+
+                        throw new TimeoutException("Connection timed out!");
+                    }
+
+                    // Second version with timeout, in WebPlayer can't connect:
+                    // Attempt to access a private/protected method failed. at System.Security.SecurityManager.ThrowException (System.Exception ex) [0x00000] in <filename unknown>:0
+                    /*IAsyncResult result = client.BeginConnect(remoteEP, null, null);
+                    Active = result.AsyncWaitHandle.WaitOne(ConnectTimeout, true);
+                    if (active)
+                    {
+                        client.EndConnect(result);
+                    }
+                    else
                     {
                         client.Close();
-                    }
-                    catch
-                    { }
-
-                    throw new TimeoutException("Connection timed out!");
-                }
-
-                // Second version with timeout, in WebPlayer can't connect:
-                // Attempt to access a private/protected method failed. at System.Security.SecurityManager.ThrowException (System.Exception ex) [0x00000] in <filename unknown>:0  
-                /*IAsyncResult result = client.BeginConnect(remoteEP, null, null);
-                Active = result.AsyncWaitHandle.WaitOne(ConnectTimeout, true);
-                if (active)
-                {
-                    client.EndConnect(result);
+                        //throw new SocketException(10060);
+                        throw new TimeoutException("Connection timed out!");
+                    }*/
                 }
                 else
                 {
-                    client.Close();
-                    //throw new SocketException(10060);
-                    throw new TimeoutException("Connection timed out!");
-                }*/
-
-                // First(old) version, no timeout
-                /*client.Connect(remoteEP);
-                active = true;*/
+                    // First(old) version, no timeout
+                    client.Connect(remoteEP);
+                    active = true;
+                }
             }
             finally
             {
@@ -401,8 +406,27 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
 
         public void Connect(string hostname, int port)
         {
-            IPAddress[] addresses = Dns.GetHostAddresses(hostname);
-            Connect(addresses, port);
+            if (ConnectTimeout > TimeSpan.Zero)
+            {
+                // https://forum.unity3d.com/threads/best-http-released.200006/page-37#post-3150972
+                System.Threading.ManualResetEvent mre = new System.Threading.ManualResetEvent(false);
+                IAsyncResult result = Dns.BeginGetHostAddresses(hostname, (res) => mre.Set(), null);
+                bool success = mre.WaitOne(ConnectTimeout);
+                if (success)
+                {
+                    IPAddress[] addresses = Dns.EndGetHostAddresses(result);
+                    Connect(addresses, port);
+                }
+                else
+                {
+                    throw new TimeoutException("DNS resolve timed out!");
+                }
+            }
+            else
+            {
+                IPAddress[] addresses = Dns.GetHostAddresses(hostname);
+                Connect(addresses, port);
+            }
         }
 
         public void Connect(IPAddress[] ipAddresses, int port)
@@ -430,11 +454,11 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
 
                     if (address.AddressFamily == AddressFamily.InterNetwork)
                     {
-                        client.Bind(new IPEndPoint(IPAddress.Any, 0));
+                        //client.Bind(new IPEndPoint(IPAddress.Any, 0));
                     }
                     else if (address.AddressFamily == AddressFamily.InterNetworkV6)
                     {
-                        client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
+                        //client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
                     }
                     else
                     {
@@ -454,9 +478,9 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
                     try
                     {
                         /*
-                            TCP_KEEPIDLE		4	 // Start keeplives after this period 
-                            TCP_KEEPINTVL		5	 // Interval between keepalives 
-                            TCP_KEEPCNT		  6    // Number of keepalives before death 
+                            TCP_KEEPIDLE		4	 // Start keeplives after this period
+                            TCP_KEEPINTVL		5	 // Interval between keepalives
+                            TCP_KEEPCNT		  6    // Number of keepalives before death
                         */
 
                         //client.SetSocketOption(SocketOptionLevel.Tcp, (SocketOptionName)4, 30);
@@ -476,6 +500,8 @@ namespace BestHTTP.PlatformSupport.TcpClient.General
                     }
                     catch{ }
 #endif
+
+                    HTTPManager.Logger.Information("TcpClient", string.Format("Connected to {0}:{1}", address.ToString(), port.ToString()));
 
                     break;
                 }

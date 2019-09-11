@@ -798,7 +798,8 @@ namespace BestHTTP.Decompression.Zlib
         /// <param name="value">irrelevant; this method will always throw!</param>
         public override void SetLength(long value)
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
+            _baseStream.SetLength(value);
         }
 
         /// <summary>

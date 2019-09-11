@@ -3,6 +3,7 @@
 using System;
 
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 namespace Org.BouncyCastle.Crypto.Engines
 {
@@ -137,7 +138,7 @@ namespace Org.BouncyCastle.Crypto.Engines
             }
             else
             {
-                throw new ArgumentException("invalid parameter passed to RC2 init - " + parameters.GetType().Name);
+                throw new ArgumentException("invalid parameter passed to RC2 init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
             }
         }
 
@@ -309,7 +310,6 @@ namespace Org.BouncyCastle.Crypto.Engines
             outBytes[outOff + 7] = (byte)(x76 >> 8);
         }
     }
-
 }
 
 #endif

@@ -3,7 +3,7 @@ using System;
 
 namespace Org.BouncyCastle.Asn1
 {
-#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE)
+#if !(NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || NETFX_CORE || PORTABLE)
     [Serializable]
 #endif
     public class Asn1ParsingException

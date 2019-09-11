@@ -9,8 +9,8 @@ modification, are permitted provided that the following conditions are met:
   1. Redistributions of source code must retain the above copyright notice,
      this list of conditions and the following disclaimer.
 
-  2. Redistributions in binary form must reproduce the above copyright 
-     notice, this list of conditions and the following disclaimer in 
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
      the documentation and/or other materials provided with the distribution.
 
   3. The names of the authors may not be used to endorse or promote products
@@ -44,7 +44,14 @@ namespace Org.BouncyCastle.Utilities.Zlib
 	public class ZOutputStream
 		: Stream
 	{
-		private const int BufferSize = 512;
+        private static ZStream GetDefaultZStream(bool nowrap)
+        {
+            ZStream z = new ZStream();
+            z.inflateInit(nowrap);
+            return z;
+        }
+
+        private const int BufferSize = 512;
 
 		protected ZStream z;
 		protected int flushLevel = JZlib.Z_NO_FLUSH;
@@ -57,9 +64,14 @@ namespace Org.BouncyCastle.Utilities.Zlib
 		protected bool closed;
 
         public ZOutputStream(Stream output)
-			: this(output, null)
-        {
-        }
+            : this(output, false)
+		{
+		}
+
+        public ZOutputStream(Stream output, bool nowrap)
+            : this(output, GetDefaultZStream(nowrap))
+		{
+		}
 
         public ZOutputStream(Stream output, ZStream z)
 			: base()
@@ -69,12 +81,16 @@ namespace Org.BouncyCastle.Utilities.Zlib
             if (z == null)
             {
                 z = new ZStream();
+            }
+
+            if (z.istate == null && z.dstate == null)
+            {
                 z.inflateInit();
             }
 
             this.output = output;
+            this.compress = (z.istate == null);
             this.z = z;
-			this.compress = false;
 		}
 
         public ZOutputStream(Stream output, int level)
@@ -88,43 +104,61 @@ namespace Org.BouncyCastle.Utilities.Zlib
 			Debug.Assert(output.CanWrite);
 
 			this.output = output;
+            this.compress = true;
             this.z = new ZStream();
 			this.z.deflateInit(level, nowrap);
-			this.compress = true;
 		}
 
 		public sealed override bool CanRead { get { return false; } }
         public sealed override bool CanSeek { get { return false; } }
         public sealed override bool CanWrite { get { return !closed; } }
 
-		protected override void Dispose(bool disposing)
+#if PORTABLE || NETFX_CORE
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+			    if (closed)
+				    return;
+
+                DoClose();
+            }
+            base.Dispose(disposing);
+        }
+#else
+        public override void Close()
 		{
-			if (this.closed)
+			if (closed)
 				return;
 
-			try
-			{
-				try
-				{
-					Finish();
-				}
-				catch (IOException)
-				{
-					// Ignore
-				}
-			}
-			finally
-			{
-				this.closed = true;
-				End();
-                output.Dispose();
-				output = null;
-			}
-
-            base.Dispose(disposing);
+            DoClose();
+            base.Close();
 		}
+#endif
 
-		public virtual void End()
+        private void DoClose()
+        {
+            try
+            {
+                try
+                {
+                    Finish();
+                }
+                catch (IOException)
+                {
+                    // Ignore
+                }
+            }
+            finally
+            {
+                this.closed = true;
+                End();
+                Org.BouncyCastle.Utilities.Platform.Dispose(output);
+                output = null;
+            }
+        }
+
+        public virtual void End()
 		{
 			if (z == null)
 				return;

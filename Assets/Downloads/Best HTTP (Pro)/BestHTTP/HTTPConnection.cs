@@ -40,39 +40,96 @@ using BestHTTP.Authentication;
 namespace BestHTTP
 {
     /// <summary>
+    /// https://tools.ietf.org/html/draft-thomson-hybi-http-timeout-03
+    /// Test servers: http://tools.ietf.org/ http://nginx.org/
+    /// </summary>
+    internal sealed class KeepAliveHeader
+    {
+        /// <summary>
+        /// A host sets the value of the "timeout" parameter to the time that the host will allow an idle connection to remain open before it is closed. A connection is idle if no data is sent or received by a host.
+        /// </summary>
+        public TimeSpan TimeOut { get; private set; }
+
+        /// <summary>
+        /// The "max" parameter has been used to indicate the maximum number of requests that would be made on the connection.This parameter is deprecated.Any limit on requests can be enforced by sending "Connection: close" and closing the connection.
+        /// </summary>
+        public int MaxRequests { get; private set; }
+
+        public void Parse(List<string> headerValues)
+        {
+            HeaderParser parser = new HeaderParser(headerValues[0]);
+            HeaderValue value;
+            if (parser.TryGet("timeout", out value) && value.HasValue)
+            {
+                int intValue = 0;
+                if (int.TryParse(value.Value, out intValue))
+                    this.TimeOut = TimeSpan.FromSeconds(intValue);
+                else
+                    this.TimeOut = TimeSpan.MaxValue;
+            }
+
+            if (parser.TryGet("max", out value) && value.HasValue)
+            {
+                int intValue = 0;
+                if (int.TryParse("max", out intValue))
+                    this.MaxRequests = intValue;
+                else
+                    this.MaxRequests = int.MaxValue;
+            }
+        }
+    }
+
+    internal enum RetryCauses
+    {
+        /// <summary>
+        /// The request processed without any special case.
+        /// </summary>
+        None,
+
+        /// <summary>
+        /// If the server closed the connection while we sending a request we should reconnect and send the request again. But we will try it once.
+        /// </summary>
+        Reconnect,
+
+        /// <summary>
+        /// We need an another try with Authorization header set.
+        /// </summary>
+        Authenticate,
+
+#if !BESTHTTP_DISABLE_PROXY
+        /// <summary>
+        /// The proxy needs authentication.
+        /// </summary>
+        ProxyAuthenticate,
+#endif
+    }
+
+    /// <summary>
     /// Represents and manages a connection to a server.
     /// </summary>
     internal sealed class HTTPConnection : ConnectionBase
     {
-        private enum RetryCauses
+        public override bool IsRemovable
         {
-            /// <summary>
-            /// The request processed without any special case.
-            /// </summary>
-            None,
+            get
+            {
+                // Plugin's own connection pooling
+                if (base.IsRemovable)
+                    return true;
 
-            /// <summary>
-            /// If the server closed the connection while we sending a request we should reconnect and send the request again. But we will try it once.
-            /// </summary>
-            Reconnect,
+                // Overridden keep-alive timeout by a Keep-Alive header
+                if (IsFree && KeepAlive != null && (DateTime.UtcNow - base.LastProcessTime) >= KeepAlive.TimeOut)
+                    return true;
 
-            /// <summary>
-            /// We need an another try with Authorization header set.
-            /// </summary>
-            Authenticate,
-
-#if !BESTHTTP_DISABLE_PROXY
-            /// <summary>
-            /// The proxy needs authentication.
-            /// </summary>
-            ProxyAuthenticate,
-#endif
+                return false;
+            }
         }
 
         #region Private Properties
 
         private TcpClient Client;
         private Stream Stream;
+        private KeepAliveHeader KeepAlive;
 
         #endregion
 
@@ -95,11 +152,6 @@ namespace BestHTTP
 
             try
             {
-#if !BESTHTTP_DISABLE_PROXY
-                if (!HasProxy && CurrentRequest.HasProxy)
-                    Proxy = CurrentRequest.Proxy;
-#endif
-
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
                 // Try load the full response from an already saved cache entity. If the response
                 if (TryLoadAllFromCache())
@@ -142,6 +194,9 @@ namespace BestHTTP
                     bool sentRequest = false;
                     try
                     {
+#if !NETFX_CORE
+                         Client.NoDelay = CurrentRequest.TryToMinimizeTCPLatency;
+#endif
                          CurrentRequest.SendOutTo(Stream);
 
                          sentRequest = true;
@@ -150,7 +205,8 @@ namespace BestHTTP
                     {
                         Close();
 
-                        if (State == HTTPConnectionStates.TimedOut)
+                        if (State == HTTPConnectionStates.TimedOut ||
+                            State == HTTPConnectionStates.AbortRequested)
                             throw new Exception("AbortRequested");
 
                         // We will try again only once
@@ -163,12 +219,13 @@ namespace BestHTTP
                             throw ex;
                     }
 
-                    // If sending out the request succeded, we will try read the response.
+                    // If sending out the request succeeded, we will try read the response.
                     if (sentRequest)
                     {
                         bool received = Receive();
 
-                        if (State == HTTPConnectionStates.TimedOut)
+                        if (State == HTTPConnectionStates.TimedOut ||
+                            State == HTTPConnectionStates.AbortRequested)
                             throw new Exception("AbortRequested");
 
                         if (!received && !alreadyReconnected && !CurrentRequest.DisableRetry)
@@ -241,6 +298,9 @@ namespace BestHTTP
                                         {
                                             Uri redirectUri = GetRedirectUri(location);
 
+                                            if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                                                HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - Redirected to Location: '{1}' redirectUri: '{1}'", this.CurrentRequest.CurrentUri.ToString(), location, redirectUri));
+
                                             // Let the user to take some control over the redirection
                                             if (!CurrentRequest.CallOnBeforeRedirection(redirectUri))
                                             {
@@ -279,11 +339,27 @@ namespace BestHTTP
 #endif
                                     break;
                             }
+                          
+                            // Closing the stream is done manually
+                            if (CurrentRequest.Response == null || !CurrentRequest.Response.IsClosedManually) {
+                                // If we have a response and the server telling us that it closed the connection after the message sent to us, then
+                                //  we will close the connection too.
+                                bool closeByServer = CurrentRequest.Response == null || CurrentRequest.Response.HasHeaderWithValue("connection", "close");
+                                bool closeByClient = !CurrentRequest.IsKeepAlive;
 
-                            // If we have a response and the server telling us that it closed the connection after the message sent to us, then
-                            //  we will colse the connection too.
-                            if (CurrentRequest.Response == null || (!CurrentRequest.Response.IsClosedManually && CurrentRequest.Response.HasHeaderWithValue("connection", "close")))
-                                Close();
+                                if (closeByServer || closeByClient)
+                                    Close();
+                                else if (CurrentRequest.Response != null)
+                                {
+                                    var keepAliveheaderValues = CurrentRequest.Response.GetHeaderValues("keep-alive");
+                                    if (keepAliveheaderValues != null && keepAliveheaderValues.Count > 0)
+                                    {
+                                        if (KeepAlive == null)
+                                            KeepAlive = new KeepAliveHeader();
+                                        KeepAlive.Parse(keepAliveheaderValues);
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -347,7 +423,12 @@ namespace BestHTTP
                             if (CurrentRequest.Response != null)
                                 CurrentRequest.State = HTTPRequestStates.Finished;
                             else
+                            {
+                                CurrentRequest.Exception = new Exception(string.Format("Remote server closed the connection before sending response header! Previous request state: {0}. Connection state: {1}",
+                                        CurrentRequest.State.ToString(),
+                                        State.ToString()));
                                 CurrentRequest.State = HTTPRequestStates.Error;
+                            }
                         }
 
                         if (CurrentRequest.State == HTTPRequestStates.ConnectionTimedOut)
@@ -395,6 +476,17 @@ namespace BestHTTP
                     HTTPProtocolFactory.IsSecureProtocol(uri);
 #endif
 
+                if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                    HTTPManager.Logger.Verbose("HTTPConnection", string.Format("'{0}' - Connecting to {1}:{2}", this.CurrentRequest.CurrentUri.ToString(), uri.Host, uri.Port.ToString()));
+
+#if !NETFX_CORE && (!UNITY_WEBGL || UNITY_EDITOR)
+                Client.SendBufferSize = HTTPManager.SendBufferSize;
+                Client.ReceiveBufferSize = HTTPManager.ReceiveBufferSize;
+
+                if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                    HTTPManager.Logger.Verbose("HTTPConnection", string.Format("'{0}' - Buffer sizes - Send: {1} Receive: {2} Blocking: {3}", this.CurrentRequest.CurrentUri.ToString(), Client.SendBufferSize.ToString(), Client.ReceiveBufferSize.ToString(), Client.Client.Blocking.ToString()));
+#endif
+
                 Client.Connect(uri.Host, uri.Port);
 
                 if (HTTPManager.Logger.Level <= Logger.Loglevels.Information)
@@ -405,114 +497,32 @@ namespace BestHTTP
 
             #endregion
 
-            lock (HTTPManager.Locker)
-                StartTime = DateTime.UtcNow;
+            StartTime = DateTime.UtcNow;
 
             if (Stream == null)
             {
                 bool isSecure = HTTPProtocolFactory.IsSecureProtocol(CurrentRequest.CurrentUri);
 
+                Stream = Client.GetStream();
+                /*if (Stream.CanTimeout)
+                    Stream.ReadTimeout = Stream.WriteTimeout = (int)CurrentRequest.Timeout.TotalMilliseconds;*/
+
+
 #if !BESTHTTP_DISABLE_PROXY
-                #region Proxy Handling
+                if (CurrentRequest.Proxy != null)
+                    CurrentRequest.Proxy.Connect(this.Stream, this.CurrentRequest);
+#endif
 
-                if (HasProxy && (!Proxy.IsTransparent || (isSecure && Proxy.NonTransparentForHTTPS)))
-                {
-                    Stream = Client.GetStream();
-                    var outStream = new BinaryWriter(Stream);
-
-                    bool retry;
-                    do
-                    {
-                        // If we have to becouse of a authentication request, we will switch it to true
-                        retry = false;
-
-                        outStream.SendAsASCII(string.Format("CONNECT {0}:{1} HTTP/1.1", CurrentRequest.CurrentUri.Host, CurrentRequest.CurrentUri.Port));
-                        outStream.Write(HTTPRequest.EOL);
-
-                        outStream.SendAsASCII("Proxy-Connection: Keep-Alive");
-                        outStream.Write(HTTPRequest.EOL);
-
-                        outStream.SendAsASCII("Connection: Keep-Alive");
-                        outStream.Write(HTTPRequest.EOL);
-
-                        outStream.SendAsASCII(string.Format("Host: {0}:{1}", CurrentRequest.CurrentUri.Host, CurrentRequest.CurrentUri.Port));
-                        outStream.Write(HTTPRequest.EOL);
-
-                        // Proxy Authentication
-                        if (HasProxy && Proxy.Credentials != null)
-                        {
-                            switch (Proxy.Credentials.Type)
-                            {
-                                case AuthenticationTypes.Basic:
-                                    // With Basic authentication we don't want to wait for a challange, we will send the hash with the first request
-                                    outStream.Write(string.Format("Proxy-Authorization: {0}", string.Concat("Basic ", Convert.ToBase64String(Encoding.UTF8.GetBytes(Proxy.Credentials.UserName + ":" + Proxy.Credentials.Password)))).GetASCIIBytes());
-                                    outStream.Write(HTTPRequest.EOL);
-                                    break;
-
-                                case AuthenticationTypes.Unknown:
-                                case AuthenticationTypes.Digest:
-                                    var digest = DigestStore.Get(Proxy.Address);
-                                    if (digest != null)
-                                    {
-                                        string authentication = digest.GenerateResponseHeader(CurrentRequest, Proxy.Credentials);
-                                        if (!string.IsNullOrEmpty(authentication))
-                                        {
-                                            outStream.Write(string.Format("Proxy-Authorization: {0}", authentication).GetASCIIBytes());
-                                            outStream.Write(HTTPRequest.EOL);
-                                        }
-                                    }
-
-                                    break;
-                            }
-                        }
-
-                        outStream.Write(HTTPRequest.EOL);
-
-                        // Make sure to send all the wrote data to the wire
-                        outStream.Flush();
-
-                        CurrentRequest.ProxyResponse = new HTTPResponse(CurrentRequest, Stream, false, false);
-
-                        // Read back the response of the proxy
-                        if (!CurrentRequest.ProxyResponse.Receive(-1, true))
-                            throw new Exception("Connection to the Proxy Server failed!");
-
-                        if (HTTPManager.Logger.Level <= Logger.Loglevels.Information)
-                            HTTPManager.Logger.Information("HTTPConnection", "Proxy returned - status code: " + CurrentRequest.ProxyResponse.StatusCode + " message: " + CurrentRequest.ProxyResponse.Message);
-
-                        switch(CurrentRequest.ProxyResponse.StatusCode)
-                        {
-                            // Proxy authentication required
-                            // http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.8
-                            case 407:
-                            {
-                                string authHeader = DigestStore.FindBest(CurrentRequest.ProxyResponse.GetHeaderValues("proxy-authenticate"));
-                                if (!string.IsNullOrEmpty(authHeader))
-                                {
-                                    var digest = DigestStore.GetOrCreate(Proxy.Address);
-                                    digest.ParseChallange(authHeader);
-
-                                    if (Proxy.Credentials != null && digest.IsUriProtected(Proxy.Address) && (!CurrentRequest.HasHeader("Proxy-Authorization") || digest.Stale))
-                                        retry = true;
-                                }
-                                break;
-                            }
-
-                            default:
-                                if (!CurrentRequest.ProxyResponse.IsSuccess)
-                                    throw new Exception(string.Format("Proxy returned Status Code: \"{0}\", Message: \"{1}\" and Response: {2}", CurrentRequest.ProxyResponse.StatusCode, CurrentRequest.ProxyResponse.Message, CurrentRequest.ProxyResponse.DataAsText));
-                                break;
-                        }
-
-                    } while (retry);
-                }
-                #endregion
-#endif // #if !BESTHTTP_DISABLE_PROXY
-
-                // We have to use CurrentRequest.CurrentUri here, becouse uri can be a proxy uri with a different protocol
+                // We have to use CurrentRequest.CurrentUri here, because uri can be a proxy uri with a different protocol
                 if (isSecure)
                 {
-                    #region SSL Upgrade
+                    // Under the new experimental runtime there's a bug in the Socket.Send implementation that can cause a 
+                    //  connection when the TLS protocol is used.
+#if !NETFX_CORE && (!UNITY_WEBGL || UNITY_EDITOR) && NET_4_6
+                    //Client.SendBufferSize = 0;
+#endif
+
+#region SSL Upgrade
 
 #if !BESTHTTP_DISABLE_ALTERNATE_SSL && (!UNITY_WEBGL || UNITY_EDITOR)
                     if (CurrentRequest.UseAlternateSSL)
@@ -520,9 +530,18 @@ namespace BestHTTP
                         var handler = new TlsClientProtocol(Client.GetStream(), new Org.BouncyCastle.Security.SecureRandom());
 
                         // http://tools.ietf.org/html/rfc3546#section-3.1
-                        // It is RECOMMENDED that clients include an extension of type "server_name" in the client hello whenever they locate a server by a supported name type.
-                        List<string> hostNames = new List<string>(1);
-                        hostNames.Add(CurrentRequest.CurrentUri.Host);
+                        // -It is RECOMMENDED that clients include an extension of type "server_name" in the client hello whenever they locate a server by a supported name type.
+                        // -Literal IPv4 and IPv6 addresses are not permitted in "HostName".
+
+                        // User-defined list has a higher priority
+                        List<string> hostNames = CurrentRequest.CustomTLSServerNameList;
+
+                        // If there's no user defined one and the host isn't an IP address, add the default one
+                        if ((hostNames == null || hostNames.Count == 0) && !CurrentRequest.CurrentUri.IsHostIsAnIPAddress())
+                        {
+                            hostNames = new List<string>(1);
+                            hostNames.Add(CurrentRequest.CurrentUri.Host);
+                        }
 
                         handler.Connect(new LegacyTlsClient(CurrentRequest.CurrentUri,
                                                             CurrentRequest.CustomCertificateVerifyer == null ? new AlwaysValidVerifyer() : CurrentRequest.CustomCertificateVerifyer,
@@ -548,26 +567,33 @@ namespace BestHTTP
 #endif
                     }
 
-                    #endregion
+#endregion
                 }
-                else
-                    Stream = Client.GetStream();
             }
         }
 
         private bool Receive()
         {
             SupportedProtocols protocol = CurrentRequest.ProtocolHandler == SupportedProtocols.Unknown ? HTTPProtocolFactory.GetProtocolFromUri(CurrentRequest.CurrentUri) : CurrentRequest.ProtocolHandler;
+
+            if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - Receive - protocol: {1}", this.CurrentRequest.CurrentUri.ToString(), protocol.ToString()));
+
             CurrentRequest.Response = HTTPProtocolFactory.Get(protocol, CurrentRequest, Stream, CurrentRequest.UseStreaming, false);
 
             if (!CurrentRequest.Response.Receive())
             {
+                if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                    HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - Receive - Failed! Response will be null, returning with false.", this.CurrentRequest.CurrentUri.ToString()));
                 CurrentRequest.Response = null;
                 return false;
             }
 
-            // We didn't check HTTPManager.IsCachingDisabled's value on purpose. (sending out a request with conditional get then change IsCachingDisabled to true may produce undefined behavior)
-            if (CurrentRequest.Response.StatusCode == 304)
+            if (CurrentRequest.Response.StatusCode == 304
+#if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
+                && !CurrentRequest.DisableCache
+#endif
+                )
             {
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
                 if (CurrentRequest.IsRedirected)
@@ -582,19 +608,34 @@ namespace BestHTTP
 #endif
             }
 
+            if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - Receive - Finished Successfully!", this.CurrentRequest.CurrentUri.ToString()));
+
             return true;
         }
 
-        #endregion
+#endregion
 
-        #region Helper Functions
+#region Helper Functions
 
 #if !BESTHTTP_DISABLE_CACHING && (!UNITY_WEBGL || UNITY_EDITOR)
 
         private bool LoadFromCache(Uri uri)
         {
+            if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - LoadFromCache for Uri: {1}", this.CurrentRequest.CurrentUri.ToString(), uri.ToString()));
+
+            var cacheEntity = HTTPCacheService.GetEntity(uri);
+            if (cacheEntity == null)
+            {
+                HTTPManager.Logger.Warning("HTTPConnection", string.Format("{0} - LoadFromCache for Uri: {1} - Cached entity not found!", this.CurrentRequest.CurrentUri.ToString(), uri.ToString()));
+                return false;
+            }
+
+            CurrentRequest.Response.CacheFileInfo = cacheEntity;
+
             int bodyLength;
-            using (var cacheStream = HTTPCacheService.GetBody(uri, out bodyLength))
+            using (var cacheStream = cacheEntity.GetBodyStream(out bodyLength))
             {
                 if (cacheStream == null)
                     return false;
@@ -602,7 +643,9 @@ namespace BestHTTP
                 if (!CurrentRequest.Response.HasHeader("content-length"))
                     CurrentRequest.Response.Headers.Add("content-length", new List<string>(1) { bodyLength.ToString() });
                 CurrentRequest.Response.IsFromCache = true;
-                CurrentRequest.Response.ReadRaw(cacheStream, bodyLength);
+
+                if (!CurrentRequest.CacheOnly)
+                    CurrentRequest.Response.ReadRaw(cacheStream, bodyLength);
             }
 
             return true;
@@ -621,6 +664,9 @@ namespace BestHTTP
                 // MAY return it without validation if it is fresh!
                 if (HTTPCacheService.IsCachedEntityExpiresInTheFuture(CurrentRequest))
                 {
+                    if (HTTPManager.Logger.Level == Logger.Loglevels.All)
+                        HTTPManager.Logger.Verbose("HTTPConnection", string.Format("{0} - TryLoadAllFromCache - whole response loading from cache", this.CurrentRequest.CurrentUri.ToString()));
+
                     CurrentRequest.Response = HTTPCacheService.GetFullResponse(CurrentRequest);
 
                     if (CurrentRequest.Response != null)
@@ -660,6 +706,9 @@ namespace BestHTTP
             try
             {
                 result = new Uri(location);
+
+                if (result.IsFile || result.AbsolutePath == location)
+                    result = null;
             }
 #if !NETFX_CORE
             catch (UriFormatException)
@@ -668,9 +717,15 @@ namespace BestHTTP
 #endif
             {
                 // Sometimes the server sends back only the path and query component of the new uri
+                result = null;
+            }
+
+            if (result == null)
+            {
                 var uri = CurrentRequest.Uri;
                 var builder = new UriBuilder(uri.Scheme, uri.Host, uri.Port, location);
                 result = builder.Uri;
+
             }
 
             return result;
@@ -686,11 +741,19 @@ namespace BestHTTP
             }
 
             if (Stream != null)
-                Stream.Dispose();
+            {
+                try
+                {
+                    Stream.Dispose();
+                }
+                catch
+                { }
+            }
         }
 
         private void Close()
         {
+            KeepAlive = null;
             LastProcessedUri = null;
             if (Client != null)
             {
@@ -710,8 +773,7 @@ namespace BestHTTP
             }
         }
 
-        #endregion
-
+#endregion
 
         protected override void Dispose(bool disposing)
         {

@@ -25,14 +25,14 @@ namespace Org.BouncyCastle.Crypto.Tls
         internal DeferredHash()
         {
             this.mBuf = new DigestInputBuffer();
-            this.mHashes = Platform.CreateHashtable();
+            this.mHashes = Org.BouncyCastle.Utilities.Platform.CreateHashtable();
             this.mPrfHashAlgorithm = -1;
         }
 
         private DeferredHash(byte prfHashAlgorithm, IDigest prfHash)
         {
             this.mBuf = null;
-            this.mHashes = Platform.CreateHashtable();
+            this.mHashes = Org.BouncyCastle.Utilities.Platform.CreateHashtable();
             this.mPrfHashAlgorithm = prfHashAlgorithm;
             mHashes[prfHashAlgorithm] = prfHash;
         }
@@ -105,7 +105,7 @@ namespace Org.BouncyCastle.Crypto.Tls
         {
             IDigest d = (IDigest)mHashes[hashAlgorithm];
             if (d == null)
-                throw new InvalidOperationException("HashAlgorithm " + hashAlgorithm + " is not being tracked");
+                throw new InvalidOperationException("HashAlgorithm." + HashAlgorithm.GetText(hashAlgorithm) + " is not being tracked");
 
             d = TlsUtilities.CloneHash(hashAlgorithm, d);
             if (mBuf != null)

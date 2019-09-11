@@ -30,6 +30,21 @@ namespace Org.BouncyCastle.Utilities.Collections
             return true;
         }
 
+        public static IDictionary ReadOnly(IDictionary d)
+        {
+            return d;
+        }
+
+        public static IList ReadOnly(IList l)
+        {
+            return l;
+        }
+
+        public static ISet ReadOnly(ISet s)
+        {
+            return s;
+        }
+
         public static string ToString(IEnumerable c)
         {
             StringBuilder sb = new StringBuilder("[");

@@ -98,6 +98,7 @@ namespace Org.BouncyCastle.Math.EC
 
         public abstract int FieldSize { get; }
         public abstract ECFieldElement FromBigInteger(BigInteger x);
+        public abstract bool IsValidFieldElement(BigInteger x);
 
         public virtual Config Configure()
         {
@@ -170,7 +171,7 @@ namespace Org.BouncyCastle.Math.EC
          * Adds <code>PreCompInfo</code> for a point on this curve, under a given name. Used by
          * <code>ECMultiplier</code>s to save the precomputation for this <code>ECPoint</code> for use
          * by subsequent multiplication.
-         * 
+         *
          * @param point
          *            The <code>ECPoint</code> to store precomputations for.
          * @param name
@@ -186,7 +187,7 @@ namespace Org.BouncyCastle.Math.EC
                 IDictionary table = point.m_preCompTable;
                 if (null == table)
                 {
-                    point.m_preCompTable = table = Platform.CreateHashtable(4);
+                    point.m_preCompTable = table = Org.BouncyCastle.Utilities.Platform.CreateHashtable(4);
                 }
                 table[name] = preCompInfo;
             }
@@ -214,7 +215,7 @@ namespace Org.BouncyCastle.Math.EC
          * coordinates reflect those of the equivalent point in an affine coordinate system. Where more
          * than one point is to be normalized, this method will generally be more efficient than
          * normalizing each point separately.
-         * 
+         *
          * @param points
          *            An array of points that will be updated in place with their normalized versions,
          *            where necessary
@@ -231,7 +232,7 @@ namespace Org.BouncyCastle.Math.EC
          * normalizing each point separately. An (optional) z-scaling factor can be applied; effectively
          * each z coordinate is scaled by this value prior to normalization (but only one
          * actual multiplication is needed).
-         * 
+         *
          * @param points
          *            An array of points that will be updated in place with their normalized versions,
          *            where necessary
@@ -357,7 +358,7 @@ namespace Org.BouncyCastle.Math.EC
                 && B.ToBigInteger().Equals(other.B.ToBigInteger());
         }
 
-        public override bool Equals(object obj) 
+        public override bool Equals(object obj)
         {
             return Equals(obj as ECCurve);
         }
@@ -377,7 +378,7 @@ namespace Org.BouncyCastle.Math.EC
         }
 
         /**
-         * Sets the default <code>ECMultiplier</code>, unless already set. 
+         * Sets the default <code>ECMultiplier</code>, unless already set.
          */
         public virtual ECMultiplier GetMultiplier()
         {
@@ -475,6 +476,11 @@ namespace Org.BouncyCastle.Math.EC
         protected AbstractFpCurve(BigInteger q)
             : base(FiniteFields.GetPrimeField(q))
         {
+        }
+
+        public override bool IsValidFieldElement(BigInteger x)
+        {
+            return x != null && x.SignValue >= 0 && x.CompareTo(Field.Characteristic) < 0;
         }
 
         protected override ECPoint DecompressPoint(int yTilde, BigInteger X1)
@@ -670,34 +676,120 @@ namespace Org.BouncyCastle.Math.EC
         {
         }
 
+        public override bool IsValidFieldElement(BigInteger x)
+        {
+            return x != null && x.SignValue >= 0 && x.BitLength <= FieldSize;
+        }
+
         public override ECPoint CreatePoint(BigInteger x, BigInteger y, bool withCompression)
         {
             ECFieldElement X = FromBigInteger(x), Y = FromBigInteger(y);
 
             switch (this.CoordinateSystem)
             {
-            case COORD_LAMBDA_AFFINE:
-            case COORD_LAMBDA_PROJECTIVE:
-            {
-                if (X.IsZero)
+                case COORD_LAMBDA_AFFINE:
+                case COORD_LAMBDA_PROJECTIVE:
                 {
-                    if (!Y.Square().Equals(B))
-                        throw new ArgumentException();
+                    if (X.IsZero)
+                    {
+                        if (!Y.Square().Equals(B))
+                            throw new ArgumentException();
+                    }
+                    else
+                    {
+                        // Y becomes Lambda (X + Y/X) here
+                        Y = Y.Divide(X).Add(X);
+                    }
+                    break;
                 }
-                else
+                default:
                 {
-                    // Y becomes Lambda (X + Y/X) here
-                    Y = Y.Divide(X).Add(X);
+                    break;
                 }
-                break;
-            }
-            default:
-            {
-                break;
-            }
             }
 
             return CreateRawPoint(X, Y, withCompression);
+        }
+
+        protected override ECPoint DecompressPoint(int yTilde, BigInteger X1)
+        {
+            ECFieldElement xp = FromBigInteger(X1), yp = null;
+            if (xp.IsZero)
+            {
+                yp = B.Sqrt();
+            }
+            else
+            {
+                ECFieldElement beta = xp.Square().Invert().Multiply(B).Add(A).Add(xp);
+                ECFieldElement z = SolveQuadradicEquation(beta);
+
+                if (z != null)
+                {
+                    if (z.TestBitZero() != (yTilde == 1))
+                    {
+                        z = z.AddOne();
+                    }
+
+                    switch (this.CoordinateSystem)
+                    {
+                        case COORD_LAMBDA_AFFINE:
+                        case COORD_LAMBDA_PROJECTIVE:
+                        {
+                            yp = z.Add(xp);
+                            break;
+                        }
+                        default:
+                        {
+                            yp = z.Multiply(xp);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (yp == null)
+                throw new ArgumentException("Invalid point compression");
+
+            return CreateRawPoint(xp, yp, true);
+        }
+
+        /**
+         * Solves a quadratic equation <code>z<sup>2</sup> + z = beta</code>(X9.62
+         * D.1.6) The other solution is <code>z + 1</code>.
+         *
+         * @param beta
+         *            The value to solve the qradratic equation for.
+         * @return the solution for <code>z<sup>2</sup> + z = beta</code> or
+         *         <code>null</code> if no solution exists.
+         */
+        private ECFieldElement SolveQuadradicEquation(ECFieldElement beta)
+        {
+            if (beta.IsZero)
+                return beta;
+
+            ECFieldElement gamma, z, zeroElement = FromBigInteger(BigInteger.Zero);
+
+            int m = FieldSize;
+            do
+            {
+                ECFieldElement t = FromBigInteger(BigInteger.Arbitrary(m));
+                z = zeroElement;
+                ECFieldElement w = beta;
+                for (int i = 1; i < m; i++)
+                {
+                    ECFieldElement w2 = w.Square();
+                    z = z.Square().Add(w2.Multiply(t));
+                    w = w2.Add(beta);
+                }
+                if (!w.IsZero)
+                {
+                    return null;
+                }
+                gamma = z.Square().Add(z);
+            }
+            while (gamma.IsZero);
+
+            return z;
         }
 
         /**
@@ -819,9 +911,9 @@ namespace Org.BouncyCastle.Math.EC
          * <code>#E<sub>a</sub>(F<sub>2<sup>m</sup></sub>) = h * n</code>.
          */
         public F2mCurve(
-            int			m, 
-            int			k, 
-            BigInteger	a, 
+            int			m,
+            int			k,
+            BigInteger	a,
             BigInteger	b,
             BigInteger	order,
             BigInteger	cofactor)
@@ -884,11 +976,11 @@ namespace Org.BouncyCastle.Math.EC
          * <code>#E<sub>a</sub>(F<sub>2<sup>m</sup></sub>) = h * n</code>.
          */
         public F2mCurve(
-            int			m, 
-            int			k1, 
-            int			k2, 
+            int			m,
+            int			k1,
+            int			k2,
             int			k3,
-            BigInteger	a, 
+            BigInteger	a,
             BigInteger	b,
             BigInteger	order,
             BigInteger	cofactor)
@@ -991,92 +1083,6 @@ namespace Org.BouncyCastle.Math.EC
         public override ECPoint Infinity
         {
             get { return m_infinity; }
-        }
-
-        protected override ECPoint DecompressPoint(int yTilde, BigInteger X1)
-        {
-            ECFieldElement xp = FromBigInteger(X1), yp = null;
-            if (xp.IsZero)
-            {
-                yp = m_b.Sqrt();
-            }
-            else
-            {
-                ECFieldElement beta = xp.Square().Invert().Multiply(B).Add(A).Add(xp);
-                ECFieldElement z = SolveQuadradicEquation(beta);
-
-                if (z != null)
-                {
-                    if (z.TestBitZero() != (yTilde == 1))
-                    {
-                        z = z.AddOne();
-                    }
-
-                    switch (this.CoordinateSystem)
-                    {
-                        case COORD_LAMBDA_AFFINE:
-                        case COORD_LAMBDA_PROJECTIVE:
-                        {
-                            yp = z.Add(xp);
-                            break;
-                        }
-                        default:
-                        {
-                            yp = z.Multiply(xp);
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (yp == null)
-                throw new ArgumentException("Invalid point compression");
-
-            return CreateRawPoint(xp, yp, true);
-        }
-
-        /**
-         * Solves a quadratic equation <code>z<sup>2</sup> + z = beta</code>(X9.62
-         * D.1.6) The other solution is <code>z + 1</code>.
-         *
-         * @param beta
-         *            The value to solve the qradratic equation for.
-         * @return the solution for <code>z<sup>2</sup> + z = beta</code> or
-         *         <code>null</code> if no solution exists.
-         */
-        private ECFieldElement SolveQuadradicEquation(ECFieldElement beta)
-        {
-            if (beta.IsZero)
-            {
-                return beta;
-            }
-
-            ECFieldElement zeroElement = FromBigInteger(BigInteger.Zero);
-
-            ECFieldElement z = null;
-            ECFieldElement gamma = null;
-
-            Random rand = new Random();
-            do
-            {
-                ECFieldElement t = FromBigInteger(new BigInteger(m, rand));
-                z = zeroElement;
-                ECFieldElement w = beta;
-                for (int i = 1; i < m; i++)
-                {
-                    ECFieldElement w2 = w.Square();
-                    z = z.Square().Add(w2.Multiply(t));
-                    w = w2.Add(beta);
-                }
-                if (!w.IsZero)
-                {
-                    return null;
-                }
-                gamma = z.Square().Add(z);
-            }
-            while (gamma.IsZero);
-
-            return z;
         }
 
         public int M

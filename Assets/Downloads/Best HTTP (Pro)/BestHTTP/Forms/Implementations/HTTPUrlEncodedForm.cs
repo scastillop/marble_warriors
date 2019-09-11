@@ -10,6 +10,8 @@ namespace BestHTTP.Forms
     /// </summary>
     public sealed class HTTPUrlEncodedForm : HTTPFormBase
     {
+        private const int EscapeTreshold = 256;
+
         private byte[] CachedData;
 
         public override void PrepareRequest(HTTPRequest request)
@@ -32,18 +34,36 @@ namespace BestHTTP.Forms
                 if (i > 0)
                     sb.Append("&");
 
-                sb.Append(Uri.EscapeDataString(field.Name));
+                sb.Append(EscapeString(field.Name));
                 sb.Append("=");
 
                 if (!string.IsNullOrEmpty(field.Text) || field.Binary == null)
-                    sb.Append(Uri.EscapeDataString(field.Text));
+                    sb.Append(EscapeString(field.Text));
                 else
                     // If forced to this form type with binary data, we will create a string from the binary data first and encode this string.
-                    sb.Append(Uri.EscapeDataString(Encoding.UTF8.GetString(field.Binary, 0, field.Binary.Length)));
+                    sb.Append(EscapeString(Encoding.UTF8.GetString(field.Binary, 0, field.Binary.Length)));
             }
 
             IsChanged = false;
             return CachedData = Encoding.UTF8.GetBytes(sb.ToString());
         }
+
+        public static string EscapeString(string originalString)
+        {
+            if (originalString.Length < EscapeTreshold)
+                return Uri.EscapeDataString(originalString);
+            else
+            {
+                int loops = originalString.Length / EscapeTreshold;
+                StringBuilder sb = new StringBuilder(loops);
+
+                for (int i = 0; i <= loops; i++)
+                   sb.Append(i < loops ?
+                                Uri.EscapeDataString(originalString.Substring(EscapeTreshold * i, EscapeTreshold)) :
+                                Uri.EscapeDataString(originalString.Substring(EscapeTreshold * i)));
+                return sb.ToString();
+            }
+        }
+
     }
 }

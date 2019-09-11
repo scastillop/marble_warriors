@@ -2,6 +2,8 @@
 using System.Collections;
 using System.IO;
 
+using Org.BouncyCastle.Utilities;
+
 namespace Org.BouncyCastle.Asn1
 {
 	public class DerSequence
@@ -76,9 +78,9 @@ namespace Org.BouncyCastle.Asn1
 				dOut.WriteObject(obj);
 			}
 
-			dOut.Dispose();
+            Org.BouncyCastle.Utilities.Platform.Dispose(dOut);
 
-			byte[] bytes = bOut.ToArray();
+            byte[] bytes = bOut.ToArray();
 
 			derOut.WriteEncoded(Asn1Tags.Sequence | Asn1Tags.Constructed, bytes);
 		}

@@ -54,7 +54,7 @@ namespace Org.BouncyCastle.Utilities
         public static string FromAsciiByteArray(
             byte[] bytes)
         {
-#if SILVERLIGHT || NETFX_CORE || UNITY_WP8
+#if SILVERLIGHT || NETFX_CORE || UNITY_WP8 || PORTABLE
             // TODO Check for non-ASCII bytes in input?
             return Encoding.UTF8.GetString(bytes, 0, bytes.Length);
 #else
@@ -65,7 +65,7 @@ namespace Org.BouncyCastle.Utilities
         public static byte[] ToAsciiByteArray(
             char[] cs)
         {
-#if SILVERLIGHT || NETFX_CORE || UNITY_WP8
+#if SILVERLIGHT || NETFX_CORE || UNITY_WP8 || PORTABLE
             // TODO Check for non-ASCII characters in input?
             return Encoding.UTF8.GetBytes(cs);
 #else
@@ -76,7 +76,7 @@ namespace Org.BouncyCastle.Utilities
         public static byte[] ToAsciiByteArray(
             string s)
         {
-#if SILVERLIGHT || NETFX_CORE || UNITY_WP8
+#if SILVERLIGHT || NETFX_CORE || UNITY_WP8 || PORTABLE
             // TODO Check for non-ASCII characters in input?
             return Encoding.UTF8.GetBytes(s);
 #else

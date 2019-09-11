@@ -26,12 +26,17 @@ namespace BestHTTP.SocketIO
         public string Namespace { get; private set; }
 
         /// <summary>
+        /// Unique Id of the socket.
+        /// </summary>
+        public string Id { get; private set; }
+
+        /// <summary>
         /// True if the socket is connected and open to the server. False otherwise.
         /// </summary>
         public bool IsOpen { get; private set; }
 
         /// <summary>
-        /// While this property is True, the socket will decode the Packet's Payload data using the parent SocketManager's Encoder. You must set this property before any event subsciption! Its default value is True;
+        /// While this property is True, the socket will decode the Packet's Payload data using the parent SocketManager's Encoder. You must set this property before any event subscription! Its default value is True;
         /// </summary>
         public bool AutoDecodePayload { get; set; }
 
@@ -40,12 +45,12 @@ namespace BestHTTP.SocketIO
         #region Privates
 
         /// <summary>
-        /// A table to store acknowlegement callbacks associated to the given ids.
+        /// A table to store acknowledgment callbacks associated to the given ids.
         /// </summary>
         private Dictionary<int, SocketIOAckCallback> AckCallbacks;
 
         /// <summary>
-        /// Tha callback table that helps this class to manage event subsciption and dispatching events.
+        /// Tha callback table that helps this class to manage event subscription and dispatching events.
         /// </summary>
         private EventTable EventCallbacks;
 
@@ -75,7 +80,7 @@ namespace BestHTTP.SocketIO
         /// </summary>
         void ISocket.Open()
         {
-            // The transport already estabilished the connection
+            // The transport already established the connection
             if (Manager.State == SocketManager.States.Open)
                 OnTransportOpen(Manager.Socket, null);
             else
@@ -108,7 +113,7 @@ namespace BestHTTP.SocketIO
                 Packet packet = new Packet(TransportEventTypes.Message, SocketIOEventTypes.Disconnect, this.Namespace, string.Empty);
                 (Manager as IManager).SendPacket(packet);
 
-                // IsOpen must be false, becouse in the OnPacket preprocessing the packet would call this function again
+                // IsOpen must be false, because in the OnPacket preprocessing the packet would call this function again
                 IsOpen = false;
                 (this as ISocket).OnPacket(packet);
             }
@@ -363,9 +368,13 @@ namespace BestHTTP.SocketIO
         /// </summary>
         void ISocket.OnPacket(Packet packet)
         {
-            // Some preprocessing of the the packet
+            // Some preprocessing of the packet
             switch(packet.SocketIOEvent)
             {
+                case SocketIOEventTypes.Connect:
+                    this.Id = this.Namespace != "/" ? this.Namespace + "#" + this.Manager.Handshake.Sid : this.Manager.Handshake.Sid;
+                    break;
+
                 case SocketIOEventTypes.Disconnect:
                     if (IsOpen)
                     {
@@ -455,7 +464,7 @@ namespace BestHTTP.SocketIO
             if (this.Namespace != "/")
                 (Manager as IManager).SendPacket(new Packet(TransportEventTypes.Message, SocketIOEventTypes.Connect, this.Namespace, string.Empty));
 
-            // and we are no open
+            // and we are now open
             IsOpen = true;
         }
 

@@ -35,7 +35,7 @@ namespace Org.BouncyCastle.Crypto.Tls
 		{
 			return credProvider == null ? null : credProvider.GetClientCredentials(context, certificateRequest);
 		}
-	}
+    }
 }
 
 #endif

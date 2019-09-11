@@ -3,12 +3,16 @@
 using System;
 using System.Text;
 
-//#if NETCF_1_0 || NETCF_2_0 || SILVERLIGHT
+//#if NETCF_1_0 || NETCF_2_0 || SILVERLIGHT || PORTABLE
 using System.Collections;
 using System.Reflection;
 //#endif
 
 using Org.BouncyCastle.Utilities.Date;
+
+#if UNITY_WSA && !UNITY_EDITOR && !ENABLE_IL2CPP
+using System.TypeFix;
+#endif
 
 namespace Org.BouncyCastle.Utilities
 {
@@ -33,7 +37,7 @@ namespace Org.BouncyCastle.Utilities
                 }
 #else
                 return (Enum)Enum.Parse(enumType, s, false);
-#endif		
+#endif
             }
 
             throw new ArgumentException();
@@ -45,7 +49,7 @@ namespace Org.BouncyCastle.Utilities
                 throw new ArgumentException("Not an enumeration type", "enumType");*/
 
 #if NETCF_1_0 || NETCF_2_0 || SILVERLIGHT
-            IList result = Platform.CreateArrayList();
+            IList result = Org.BouncyCastle.Utilities.Platform.CreateArrayList();
             FieldInfo[] fields = enumType.GetFields(BindingFlags.Static | BindingFlags.Public);
             foreach (FieldInfo field in fields)
             {
@@ -66,6 +70,15 @@ namespace Org.BouncyCastle.Utilities
             Array values = GetEnumValues(enumType);
             int pos = (int)(DateTimeUtilities.CurrentUnixMs() & int.MaxValue) % values.Length;
             return (Enum)values.GetValue(pos);
+        }
+
+        internal static bool IsEnumType(System.Type t)
+        {
+#if NEW_REFLECTION || NETFX_CORE
+            return t.GetTypeInfo().IsEnum;
+#else
+            return t.IsEnum;
+#endif
         }
     }
 }

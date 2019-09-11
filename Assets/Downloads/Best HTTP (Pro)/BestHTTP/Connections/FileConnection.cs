@@ -4,19 +4,21 @@ using System.Collections.Generic;
 #if NETFX_CORE
     using FileStream = BestHTTP.PlatformSupport.IO.FileStream;
     using FileMode = BestHTTP.PlatformSupport.IO.FileMode;
+    using FileAccess = BestHTTP.PlatformSupport.IO.FileAccess;
 
     using Directory = BestHTTP.PlatformSupport.IO.Directory;
     using File = BestHTTP.PlatformSupport.IO.File;
 #else
-    using FileStream = System.IO.FileStream;
+using FileStream = System.IO.FileStream;
     using FileMode = System.IO.FileMode;
+    using FileAccess = System.IO.FileAccess;
 #endif
 
 using BestHTTP.Extensions;
 
 namespace BestHTTP
 {
-    sealed class StreamList : System.IO.Stream
+    public sealed class StreamList : System.IO.Stream
     {
         private System.IO.Stream[] Streams;
         private int CurrentIdx;
@@ -32,7 +34,7 @@ namespace BestHTTP
             get {
                 if (CurrentIdx >= Streams.Length)
                     return false;
-                return Streams[CurrentIdx].CanRead; 
+                return Streams[CurrentIdx].CanRead;
             }
         }
 
@@ -144,7 +146,7 @@ namespace BestHTTP
 
     /*public static class AndroidFileHelper
     {
-        // AndroidJavaClass jc = new AndroidJavaClass("com.unity3d.player.UnityPlayer"); 
+        // AndroidJavaClass jc = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
         // AndroidJavaObject jo = jc.GetStatic<AndroidJavaObject>("currentActivity");
 
         public static Stream GetAPKFileStream(string path)
@@ -253,7 +255,7 @@ namespace BestHTTP
                 // Step 4 : create a HTTPResponse object
                 // Step 5 : call the Receive function of the response object
 
-                using (FileStream fs = new FileStream(this.CurrentRequest.CurrentUri.LocalPath, FileMode.Open))
+                using (FileStream fs = new FileStream(this.CurrentRequest.CurrentUri.LocalPath, FileMode.Open, FileAccess.Read))
                 //using (Stream fs = AndroidFileHelper.GetAPKFileStream(this.CurrentRequest.CurrentUri.LocalPath))
                     using (StreamList stream = new StreamList(new System.IO.MemoryStream(), fs))
                     {

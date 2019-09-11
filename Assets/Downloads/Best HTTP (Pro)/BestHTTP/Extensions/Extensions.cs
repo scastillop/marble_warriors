@@ -22,7 +22,7 @@ namespace BestHTTP.Extensions
 {
     public static class Extensions
     {
-        #region ASCII Encoding (These are required becouse Windows Phone doesn't supports the Encoding.ASCII class.)
+        #region ASCII Encoding (These are required because Windows Phone doesn't supports the Encoding.ASCII class.)
 
         /// <summary>
         /// On WP8 platform there are no ASCII encoding.
@@ -87,6 +87,17 @@ namespace BestHTTP.Extensions
 
         #region Other Extensions
 
+        public static string GetRequestPathAndQueryURL(this Uri uri)
+        {
+            string requestPathAndQuery = uri.GetComponents(UriComponents.PathAndQuery, UriFormat.UriEscaped);
+
+            // http://forum.unity3d.com/threads/best-http-released.200006/page-26#post-2723250
+            if (string.IsNullOrEmpty(requestPathAndQuery))
+                requestPathAndQuery = "/";
+
+            return requestPathAndQuery;
+        }
+
         public static string[] FindOption(this string str, string option)
         {
             //s-maxage=2678400, must-revalidate, max-age=0
@@ -98,6 +109,53 @@ namespace BestHTTP.Extensions
                     return options[i].Split(new char[] { '=' }, StringSplitOptions.RemoveEmptyEntries);
 
             return null;
+        }
+
+        public static void WriteArray(this Stream stream, byte[] array)
+        {
+            stream.Write(array, 0, array.Length);
+        }
+
+        /// <summary>
+        /// Returns true if the Uri's host is a valid IPv4 or IPv6 address.
+        /// </summary>
+        public static bool IsHostIsAnIPAddress(this Uri uri)
+        {
+            if (uri == null)
+                return false;
+
+            return IsIpV4AddressValid(uri.Host) || IsIpV6AddressValid(uri.Host);
+        }
+
+        // Original idea from: https://www.code4copy.com/csharp/c-validate-ip-address-string/
+        // Working regex: https://www.regular-expressions.info/ip.html
+        private static readonly System.Text.RegularExpressions.Regex validIpV4AddressRegex = new System.Text.RegularExpressions.Regex("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// Validates an IPv4 address.
+        /// </summary>
+        public static bool IsIpV4AddressValid(string address)
+        {
+            if (!string.IsNullOrEmpty(address))
+                return validIpV4AddressRegex.IsMatch(address.Trim());
+
+            return false;
+        }
+
+        /// <summary>
+        /// Validates an IPv6 address.
+        /// </summary>
+        public static bool IsIpV6AddressValid(string address)
+        {
+#if !NETFX_CORE
+            if (!string.IsNullOrEmpty(address))
+            {
+                System.Net.IPAddress ip;
+                if (System.Net.IPAddress.TryParse(address, out ip))
+                  return ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+            }
+#endif
+            return false;
         }
 
         #endregion

@@ -3,7 +3,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 
-using Org.BouncyCastle.Asn1.Utilities;
 using Org.BouncyCastle.Utilities.IO;
 
 namespace Org.BouncyCastle.Asn1
@@ -339,6 +338,8 @@ namespace Org.BouncyCastle.Asn1
                     return new DerGeneralizedTime(bytes);
                 case Asn1Tags.GeneralString:
                     return new DerGeneralString(bytes);
+                case Asn1Tags.GraphicString:
+                    return new DerGraphicString(bytes);
                 case Asn1Tags.IA5String:
                     return new DerIA5String(bytes);
                 case Asn1Tags.Integer:
@@ -359,6 +360,8 @@ namespace Org.BouncyCastle.Asn1
                     return new DerUtcTime(bytes);
                 case Asn1Tags.Utf8String:
                     return new DerUtf8String(bytes);
+                case Asn1Tags.VideotexString:
+                    return new DerVideotexString(bytes);
                 case Asn1Tags.VisibleString:
                     return new DerVisibleString(bytes);
                 default:

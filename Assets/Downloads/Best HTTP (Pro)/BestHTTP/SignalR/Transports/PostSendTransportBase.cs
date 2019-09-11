@@ -33,7 +33,7 @@ namespace BestHTTP.SignalR.Transports
 
             Connection.PrepareRequest(request, RequestTypes.Send);
 
-            // Set a lower priority then the default. This way requests that are sent out alonside with SignalR sent requests can be processed sooner.
+            // Set a lower priority then the default. This way requests that are sent out alongside with SignalR sent requests can be processed sooner.
             request.Priority = -1;
 
             request.Send();
@@ -81,7 +81,7 @@ namespace BestHTTP.SignalR.Transports
                     reason = "Send - Request Aborted!";
                     break;
 
-                // Ceonnecting to the server is timed out.
+                // Connecting to the server is timed out.
                 case HTTPRequestStates.ConnectionTimedOut:
                     reason = "Send - Connection Timed Out!";
                     break;

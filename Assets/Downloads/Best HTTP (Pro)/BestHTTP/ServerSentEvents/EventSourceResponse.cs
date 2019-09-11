@@ -11,9 +11,9 @@ namespace BestHTTP.ServerSentEvents
 {
     /// <summary>
     /// A low-level class to receive and parse an EventSource(http://www.w3.org/TR/eventsource/) stream.
-    /// Higher level protocol reprezentation is implemented in the EventSource class.
+    /// Higher level protocol representation is implemented in the EventSource class.
     /// </summary>
-    internal sealed class EventSourceResponse : HTTPResponse, IProtocol
+    public sealed class EventSourceResponse : HTTPResponse, IProtocol
     {
         public bool IsClosed { get; private set; }
 
@@ -53,22 +53,24 @@ namespace BestHTTP.ServerSentEvents
 
         #endregion
 
-        internal EventSourceResponse(HTTPRequest request, Stream stream, bool isStreamed, bool isFromCache)
+        public EventSourceResponse(HTTPRequest request, Stream stream, bool isStreamed, bool isFromCache)
             :base(request, stream, isStreamed, isFromCache)
         {
             base.IsClosedManually = true;
         }
 
-        internal override bool Receive(int forceReadRawContentLength = -1, bool readPayloadData = true)
+        public override bool Receive(int forceReadRawContentLength = -1, bool readPayloadData = true)
         {
             bool received = base.Receive(forceReadRawContentLength, false);
 
-            base.IsUpgraded = received && 
-                              this.StatusCode == 200 && 
-                              this.HasHeaderWithValue("content-type", "text/event-stream");
+            string contentType = this.GetFirstHeaderValue("content-type");
+            base.IsUpgraded = received &&
+                              this.StatusCode == 200 &&
+                              !string.IsNullOrEmpty(contentType) &&
+                              contentType.ToLower().StartsWith("text/event-stream");
 
-            // If we didn't upgraded to the protocol we have to read all the sent payload becouse
-            // next requests may read these datas as http headers and will fail
+            // If we didn't upgraded to the protocol we have to read all the sent payload because
+            // next requests may read these datas as HTTP headers and will fail
             if (!IsUpgraded)
                 ReadPayload(forceReadRawContentLength);
 
@@ -84,8 +86,9 @@ namespace BestHTTP.ServerSentEvents
                     Windows.System.Threading.ThreadPool.RunAsync(ReceiveThreadFunc);
                 #pragma warning restore 4014
 #else
-                new Thread(ReceiveThreadFunc)
-                    .Start();
+                ThreadPool.QueueUserWorkItem(ReceiveThreadFunc);
+                //new Thread(ReceiveThreadFunc)
+                //    .Start();
 #endif
             }
         }
@@ -153,7 +156,7 @@ namespace BestHTTP.ServerSentEvents
 
                 FeedData(buffer, readBytes);
 
-                // Every chunk data has a trailing CRLF 
+                // Every chunk data has a trailing CRLF
                 ReadTo(stream, LF);
 
                 // read the next chunk's length
@@ -164,7 +167,7 @@ namespace BestHTTP.ServerSentEvents
             ReadHeaders(stream);
         }
 
-        private new void ReadRaw(Stream stream, int contentLength)
+        private new void ReadRaw(Stream stream, long contentLength)
         {
             byte[] buffer = new byte[1024];
             int bytes;
@@ -193,7 +196,7 @@ namespace BestHTTP.ServerSentEvents
             int pos = 0;
 
             do {
-                
+
                 newlineIdx = -1;
                 int skipCount = 1; // to skip CR and/or LF
 
@@ -223,7 +226,7 @@ namespace BestHTTP.ServerSentEvents
                     return;
 
                 ParseLine(LineBuffer, LineBufferPos);
-                
+
                 LineBufferPos = 0;
                 //pos += newlineIdx + skipCount;
                 pos = newlineIdx + skipCount;
@@ -302,7 +305,7 @@ namespace BestHTTP.ServerSentEvents
                 // If the field name is "data" => Append the field value to the data buffer, then append a single U+000A LINE FEED (LF) character to the data buffer.
                 case "data":
                     // Append a new line if we already have some data. This way we can skip step 3.) in the EventSource's OnMessageReceived.
-                    // We do only null check, becouse empty string can be valid payload
+                    // We do only null check, because empty string can be valid payload
                     if (CurrentMessage.Data != null)
                         CurrentMessage.Data += Environment.NewLine;
 

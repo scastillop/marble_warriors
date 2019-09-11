@@ -22,7 +22,7 @@ namespace BestHTTP.Caching
     /// <summary>
     /// Holds all metadata that need for efficient caching, so we don't need to touch the disk to load headers.
     /// </summary>
-    internal class HTTPCacheFileInfo : IComparable<HTTPCacheFileInfo>
+    public class HTTPCacheFileInfo : IComparable<HTTPCacheFileInfo>
     {
         #region Properties
 
@@ -39,7 +39,7 @@ namespace BestHTTP.Caching
         /// <summary>
         /// The length of the cache entity's body.
         /// </summary>
-        internal int BodyLength { get; set; }
+        public int BodyLength { get; set; }
 
         /// <summary>
         /// ETag of the entity.
@@ -87,7 +87,7 @@ namespace BestHTTP.Caching
         private string ConstructedPath { get; set; }
 
         /// <summary>
-        /// This is the index of the enity. Filenames are generated from this value.
+        /// This is the index of the entity. Filenames are generated from this value.
         /// </summary>
         internal UInt64 MappedNameIDX { get; set; }
 
@@ -155,8 +155,8 @@ namespace BestHTTP.Caching
             writer.Write(MustRevalidate);
             writer.Write(Received.ToBinary());
         }
-        
-        private string GetPath()
+
+        public string GetPath()
         {
             if (ConstructedPath != null)
                 return ConstructedPath;
@@ -164,7 +164,7 @@ namespace BestHTTP.Caching
             return ConstructedPath = System.IO.Path.Combine(HTTPCacheService.CacheFolder, MappedNameIDX.ToString("X"));
         }
 
-        internal bool IsExists()
+        public bool IsExists()
         {
             if (!HTTPCacheService.IsSupported)
                 return false;
@@ -192,7 +192,7 @@ namespace BestHTTP.Caching
 
         private void Reset()
         {
-            this.MappedNameIDX = 0x0000;
+            // MappedNameIDX will remain the same. When we re-save an entity, it will not reset the MappedNameIDX.
             this.BodyLength = -1;
             this.ETag = string.Empty;
             this.Expires = DateTime.FromBinary(0);
@@ -210,6 +210,8 @@ namespace BestHTTP.Caching
 
         private void SetUpCachingValues(HTTPResponse response)
         {
+            response.CacheFileInfo = this;
+
             this.ETag = response.GetFirstHeaderValue("ETag").ToStrOrEmpty();
             this.Expires = response.GetFirstHeaderValue("Expires").ToDateTime(DateTime.FromBinary(0));
             this.LastModified = response.GetFirstHeaderValue("Last-Modified").ToStrOrEmpty();
@@ -221,7 +223,7 @@ namespace BestHTTP.Caching
             string cacheControl = response.GetFirstHeaderValue("cache-control");
             if (!string.IsNullOrEmpty(cacheControl))
             {
-                string[] kvp = cacheControl.FindOption("Max-Age");
+                string[] kvp = cacheControl.FindOption("max-age");
                 if (kvp != null)
                 {
                     // Some cache proxies will return float values
@@ -278,7 +280,7 @@ namespace BestHTTP.Caching
                 request.AddHeader("If-Modified-Since", LastModified);
         }
 
-        internal System.IO.Stream GetBodyStream(out int length)
+        public System.IO.Stream GetBodyStream(out int length)
         {
             if (!IsExists())
             {
@@ -290,7 +292,7 @@ namespace BestHTTP.Caching
 
             LastAccess = DateTime.UtcNow;
 
-            FileStream stream = new FileStream(GetPath(), FileMode.Open);
+            FileStream stream = new FileStream(GetPath(), FileMode.Open, FileAccess.Read, FileShare.Read);
             stream.Seek(-length, System.IO.SeekOrigin.End);
 
             return stream;
@@ -303,9 +305,10 @@ namespace BestHTTP.Caching
 
             LastAccess = DateTime.UtcNow;
 
-            using (FileStream stream = new FileStream(GetPath(), FileMode.Open))
+            using (FileStream stream = new FileStream(GetPath(), FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 var response = new HTTPResponse(request, stream, request.UseStreaming, true);
+                response.CacheFileInfo = this;
                 response.Receive(BodyLength);
                 return response;
             }

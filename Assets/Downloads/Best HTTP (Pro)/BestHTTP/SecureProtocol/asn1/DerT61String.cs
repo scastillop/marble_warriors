@@ -26,7 +26,7 @@ namespace Org.BouncyCastle.Asn1
                 return (DerT61String)obj;
             }
 
-            throw new ArgumentException("illegal object in GetInstance: " + obj.GetType().Name);
+            throw new ArgumentException("illegal object in GetInstance: " + Org.BouncyCastle.Utilities.Platform.GetTypeName(obj));
         }
 
         /**

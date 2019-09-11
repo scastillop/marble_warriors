@@ -3,6 +3,7 @@
 using System;
 
 using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Utilities;
 
 #if UNITY_WSA && !UNITY_EDITOR && !ENABLE_IL2CPP
 using System.TypeFix;
@@ -588,7 +589,7 @@ namespace Org.BouncyCastle.Crypto.Engines
 				return;
 			}
 
-			throw new ArgumentException("invalid parameter passed to Rijndael init - " + parameters.GetType().ToString());
+			throw new ArgumentException("invalid parameter passed to Rijndael init - " + Org.BouncyCastle.Utilities.Platform.GetTypeName(parameters));
 		}
 
         public virtual string AlgorithmName

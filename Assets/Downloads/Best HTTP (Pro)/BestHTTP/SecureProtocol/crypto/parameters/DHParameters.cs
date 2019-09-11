@@ -93,6 +93,7 @@ namespace Org.BouncyCastle.Crypto.Parameters
 				throw new ArgumentException("m value must be < bitlength of p", "m");
 			if (l != 0)
 			{ 
+                // TODO Check this against the Java version, which has 'l > p.BitLength' here
 	            if (l >= p.BitLength)
                 	throw new ArgumentException("when l value specified, it must be less than bitlength(p)", "l");
 				if (l < m)
@@ -163,12 +164,12 @@ namespace Org.BouncyCastle.Crypto.Parameters
 			return Equals(other);
 		}
 
-		protected bool Equals(
+		protected virtual bool Equals(
 			DHParameters other)
 		{
 			return p.Equals(other.p)
 				&& g.Equals(other.g)
-				&& Platform.Equals(q, other.q);
+				&& Org.BouncyCastle.Utilities.Platform.Equals(q, other.q);
 		}
 
 		public override int GetHashCode()

@@ -7,13 +7,14 @@ namespace BestHTTP.SocketIO
     /// <summary>
     /// Interface to hide internal functions from the user by implementing it as an explicit interface.
     /// </summary>
-    interface IManager
+    public interface IManager
     {
         void Remove(Socket socket);
         void Close(bool removeSockets = true);
         void TryToReconnect();
         bool OnTransportConnected(ITransport transport);
         void OnTransportError(ITransport trans, string err);
+        void OnTransportProbed(ITransport trans);
         void SendPacket(Packet packet);
         void OnPacket(Packet packet);
         void EmitEvent(string eventName, params object[] args);
@@ -25,7 +26,7 @@ namespace BestHTTP.SocketIO
     /// <summary>
     /// Interface to hide internal functions from the user by implementing it as an explicit interface.
     /// </summary>
-    interface ISocket
+    public interface ISocket
     {
         void Open();
         void Disconnect(bool remove);

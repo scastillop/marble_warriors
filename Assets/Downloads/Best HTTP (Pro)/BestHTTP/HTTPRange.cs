@@ -3,7 +3,7 @@
 namespace BestHTTP
 {
     /// <summary>
-    /// 
+    ///
     /// </summary>
     public sealed class HTTPRange
     {
@@ -23,7 +23,7 @@ namespace BestHTTP
         public int ContentLength { get; private set; }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public bool IsValid { get; private set; }
 
@@ -39,10 +39,10 @@ namespace BestHTTP
             this.IsValid = false;
         }
 
-        internal HTTPRange(int fbp, int lbp, int contentLength)
+        internal HTTPRange(int firstBytePosition, int lastBytePosition, int contentLength)
         {
-            this.FirstBytePos = fbp;
-            this.LastBytePos = lbp;
+            this.FirstBytePos = firstBytePosition;
+            this.LastBytePos = lastBytePosition;
             this.ContentLength = contentLength;
 
             // A byte-content-range-spec with a byte-range-resp-spec whose last-byte-pos value is less than its first-byte-pos value, or whose instance-length value is less than or equal to its last-byte-pos value, is invalid.

@@ -99,6 +99,10 @@ namespace Org.BouncyCastle.Crypto.Engines
 
             kdf.Init(kParam);
 
+            // Ensure that the length of the input is greater than the MAC in bytes
+            if (inLen < mac.GetMacSize())
+                throw new InvalidCipherTextException("Length of input must be greater than the MAC");
+
             inLen -= mac.GetMacSize();
 
             if (cipher == null)     // stream mode
@@ -238,7 +242,6 @@ namespace Org.BouncyCastle.Crypto.Engines
             }
         }
     }
-
 }
 
 #endif
