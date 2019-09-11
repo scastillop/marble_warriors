@@ -19,10 +19,14 @@ public class Scene : MonoBehaviour
     private ButtonAct lastButtonActPressed;
     private List<Action> actions;
     private SocketManager socketManager;
+    private int playerId;
 
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
+        //seteo mi id de jugador
+        this.playerId = 1;
+
         //generando equipos
         this.allied = new Team(1); //id jugador 1
         this.enemy = new Team(2); //id jugador 2
@@ -43,16 +47,11 @@ public class Scene : MonoBehaviour
             this.rotations[i+5] = Quaternion.Euler(0.0f, 90.0f, 0.0f);
         }
 
-        //genero Personajes aliados (agregandolos a su equipo)
+        //genero Personajes (agregandolos a su equipo)
         for (int i = 0; i < 5; i++)
         {
             this.allied.AddChar(MakeChar(i));
-        }
-
-        //genero Personajes enemigos (agregandolos a su equipo)
-        for (int i = 5; i < 10; i++)
-        {
-            this.enemy.AddChar(MakeChar(i));
+            this.enemy.AddChar(MakeChar(i+5));
         }
 
         //seteo datos de los Personajes en la UI
@@ -90,14 +89,17 @@ public class Scene : MonoBehaviour
         //defino las acciones en vacio
         actions = new List<Action>();
 
+        //seteo la funcion del boton que termina el turno
+        GameObject.Find("End Turn").GetComponent<Button>().onClick.AddListener(delegate { EndTurn(); });
+
         //instancio la conexion con el servidor
         //desabilito los logs (ya que yo los voy a realizar)
-        BestHTTP.HTTPManager.Logger.Level = BestHTTP.Logger.Loglevels.None;
-        TimeSpan miliSecForReconnect = TimeSpan.FromMilliseconds(10000);
+        HTTPManager.Logger.Level = BestHTTP.Logger.Loglevels.None;
+        TimeSpan miliSecForReconnect = TimeSpan.FromMilliseconds(1000);
         SocketOptions options = new SocketOptions();
         options.ReconnectionAttempts = 3;
-        options.AutoConnect = false;
-        options.Reconnection = false;
+        options.AutoConnect = true;
+        options.Reconnection = true;
         options.ReconnectionDelay = miliSecForReconnect;
         this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9010/socket.io/"), options);
         //socketManager.Socket.On("ping", evento1);
@@ -107,13 +109,17 @@ public class Scene : MonoBehaviour
         this.socketManager.Open();
     }
 
+    //funcion que se ejecuta cuando hay un error de conexion con el servidor
     private void socketError(Socket socket, Packet packet, params object[] args)
     {
+        Debug.Log("Se ha generado un error de conexión con el servidor");
         Debug.Log(args);
     }
 
+    //funcion que se ejecuta cuando se desconecta del servidor
     private void socketDisconnect(Socket socket, Packet packet, params object[] args)
     {
+        Debug.Log("Se ha desconectado del servidor");
         Debug.Log(args);
     }
 
@@ -123,7 +129,7 @@ public class Scene : MonoBehaviour
         //genero las habilidades del personaje
         Stat statSkill = new Stat(-10, 0, 0, 0, 0, 0, 0);
         List<Skill> skillSet = new List<Skill>();
-        skillSet.Add(new Skill("Basic Attack", 10, statSkill));
+        skillSet.Add(new Skill("Basic Attack", 10, statSkill, 0));
 
         //genero las estadisticas del personaje
         Stat statChar = new Stat(100, 100, 100, 100, 100, 100, 100);
@@ -362,5 +368,15 @@ public class Scene : MonoBehaviour
         }
         
         
+    }
+
+    private void EndTurn()
+    {
+        List<Hashtable> data = new List<Hashtable>();  
+        foreach (Action action in this.actions)
+        {
+            data.Add(action.SerializableAction());
+        }
+        this.socketManager.Socket.Emit("actions", data);
     }
 }
