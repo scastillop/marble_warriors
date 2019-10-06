@@ -2012,8 +2012,8 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6216438986169108837}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: edcf7e87582bca647bcb9edb24e0f73c, type: 3}
-  m_Controller: {fileID: 0}
+  m_Avatar: {fileID: 9000000, guid: 2725e1feaac07604cbe6e59d813c1f23, type: 2}
+  m_Controller: {fileID: 9100000, guid: c464ca0ec74b39e428a9cf7fe14be453, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -2038,6 +2038,9 @@ MonoBehaviour:
   characterName: 
   position: 0
   model: 0
+  sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
+    type: 3}
+  hpSlider: {fileID: 0}
 --- !u!136 &3135384006895872071
 CapsuleCollider:
   m_ObjectHideFlags: 0

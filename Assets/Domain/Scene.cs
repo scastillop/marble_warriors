@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using BestHTTP;
 using BestHTTP.SocketIO;
+using UnityEngine.Scripting;
+using UnityEngine.Events;
 
 public class Scene : MonoBehaviour
 
@@ -20,12 +22,16 @@ public class Scene : MonoBehaviour
     private List<Action> actions;
     private SocketManager socketManager;
     private int playerId;
+    private int gameId;
 
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
+        //seteo el panel de carga
+        //Loading(true, "Cargando...");
+
         //seteo mi id de jugador
-        this.playerId = 1;
+        this.playerId = 2;
 
         //generando equipos
         this.allied = new Team(1); //id jugador 1
@@ -74,6 +80,11 @@ public class Scene : MonoBehaviour
             j++;
         }
 
+        //seteo el color del boton "end turn" (cuando esta desabilitado)
+        ColorBlock cb2 = GameObject.Find("End Turn").GetComponent<Button>().colors;
+        cb2.disabledColor = Color.Lerp(GameObject.Find("End Turn").GetComponent<Button>().colors.normalColor, Color.black, 0.2f);
+        GameObject.Find("End Turn").GetComponent<Button>().colors = cb2;
+
         //actualizo la UI de estado de los peronajes
         UpdateCharacterMenu();
 
@@ -93,34 +104,52 @@ public class Scene : MonoBehaviour
         GameObject.Find("End Turn").GetComponent<Button>().onClick.AddListener(delegate { EndTurn(); });
 
         //instancio la conexion con el servidor
-        //desabilito los logs (ya que yo los voy a realizar)
+        //desabilito los logs (ya que yo los voy a realizar solo si los requiero)
         HTTPManager.Logger.Level = BestHTTP.Logger.Loglevels.None;
+        
+        //seteo las configuraciones de reconexion
         TimeSpan miliSecForReconnect = TimeSpan.FromMilliseconds(1000);
         SocketOptions options = new SocketOptions();
         options.ReconnectionAttempts = 3;
         options.AutoConnect = true;
         options.Reconnection = true;
         options.ReconnectionDelay = miliSecForReconnect;
-        this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9010/socket.io/"), options);
-        //socketManager.Socket.On("ping", evento1);
+        
+        //instancio la conexion con el servidor modular
+        this.socketManager = new SocketManager(new Uri("http://localhost:9010/socket.io/"), options);
+        
+        //seteo los eventos de error y desconexion
         this.socketManager.Socket.On(SocketIOEventTypes.Error, socketError);
         this.socketManager.Socket.On(SocketIOEventTypes.Disconnect, socketDisconnect);
 
+        //seteo los eventos que utilizare
+        //cuando el servidor me indica que la partida ha empezado
+        socketManager.Socket.On("gameBegin", gameBegin);
+        //cuando el servidor me indica que gané por leave
+        socketManager.Socket.On("victoryByLeave", victoryByLeave);
+        //cuando el servidor responde a las acciones que le envié
+        socketManager.Socket.On("actionsResponse", actionsResponse);
+
         this.socketManager.Open();
+
+        //informo que estoy listo para comenzar la partida identificandome
+        socketManager.Socket.Emit("readyToBegin", this.playerId);
+        //Loading(true, "Esperando al oponente...");
+        
     }
 
     //funcion que se ejecuta cuando hay un error de conexion con el servidor
     private void socketError(Socket socket, Packet packet, params object[] args)
     {
-        Debug.Log("Se ha generado un error de conexión con el servidor");
-        Debug.Log(args);
+        //Debug.Log("Se ha generado un error de conexión con el servidor");
+        //Debug.Log(args);
     }
 
     //funcion que se ejecuta cuando se desconecta del servidor
     private void socketDisconnect(Socket socket, Packet packet, params object[] args)
     {
-        Debug.Log("Se ha desconectado del servidor");
-        Debug.Log(args);
+        //Debug.Log("Se ha desconectado del servidor");
+        //Debug.Log(args);
     }
 
     //funcion que genera Personajes por posicion (por ahora para efectos de prueba)
@@ -132,7 +161,8 @@ public class Scene : MonoBehaviour
         skillSet.Add(new Skill("Basic Attack", 10, statSkill, 0));
 
         //genero las estadisticas del personaje
-        Stat statChar = new Stat(100, 100, 100, 100, 100, 100, 100);
+        Stat statChar = new Stat(100, 100, 30, 20, 30, 30, 20);
+        Stat actualStatChar = new Stat(70, 100, 30, 20, 30, 30, 20);
 
         //instancio el personaje en pantalla
         GameObject character = Instantiate(this.characterPrefab, this.positions[position], this.rotations[position]);
@@ -141,7 +171,7 @@ public class Scene : MonoBehaviour
         character.GetComponent<Character>().id = 1;
         character.GetComponent<Character>().characterName = "Swordman";
         character.GetComponent<Character>().position = position;
-        character.GetComponent<Character>().actualStat = statChar;
+        character.GetComponent<Character>().actualStat = actualStatChar;
         character.GetComponent<Character>().initialStat = statChar;
         character.GetComponent<Character>().skills = skillSet;
 
@@ -154,18 +184,18 @@ public class Scene : MonoBehaviour
         foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
         {
             //seteo el nombre del personaje en el boton
-            button.GetComponentInChildren<Text>().text = button.GetComponent<ButtonChar>().character.GetComponent<Character>().characterName;
+            button.GetComponentInChildren<Text>().text =  button.GetComponent<ButtonChar>().character.GetComponent<Character>().characterName;
             foreach(Slider slider in button.GetComponentsInChildren<Slider>())
             {
                 //seteo la barra de vida
                 if (slider.name.Equals("hp"))
                 {
-                    slider.value = button.GetComponent<ButtonChar>().character.GetComponent<Character>().initialStat.hp / button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.hp;
+                    slider.value = (float) button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.hp / button.GetComponent<ButtonChar>().character.GetComponent<Character>().initialStat.hp;
                 }
                 //seteo la barra de mana
                 else if (slider.name.Equals("mp"))
                 {
-                    slider.value = button.GetComponent<ButtonChar>().character.GetComponent<Character>().initialStat.mp / button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.mp;
+                    slider.value = (float) button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.mp / button.GetComponent<ButtonChar>().character.GetComponent<Character>().initialStat.mp;
                 }
             }
         }
@@ -174,7 +204,7 @@ public class Scene : MonoBehaviour
     //funcion que se ejecuta al seleccionar un Personaje en el menu
     private void CharClick(Button button)
     {
-
+        allied.characters[0].GetComponent<Character>().Move(new Vector3(145.0f+3f, 0.0f, 164.0f + 12f));
         //cambio la posicion del menu de acciones
         GameObject.Find("Actions Menu").GetComponent<RectTransform>().position = new Vector2(GameObject.Find("Actions Menu").GetComponent<RectTransform>().position.x, button.transform.position.y );
 
@@ -249,7 +279,7 @@ public class Scene : MonoBehaviour
     {
         if (this.socketManager != null)
         {
-            Debug.Log(this.socketManager.State);
+            //Debug.Log(this.socketManager.State);
         }
 
         //maneja eventos de touch en la pantalla
@@ -336,6 +366,7 @@ public class Scene : MonoBehaviour
         }
     }
 
+    //funcion que se ejecuta para volver solidos a los personajes
     private IEnumerator waitforSolidificateCharacters(float duration)
     {
         //espero los segundos
@@ -356,13 +387,18 @@ public class Scene : MonoBehaviour
         }
     }
 
+    //funcion que se ejecuta al salir del juego
     private void OnApplicationQuit()
     {
-        //si estoy conectado a un servidor, me desconecto
+        //si estoy conectado a un servidor
         if (this.socketManager != null)
         {
-            if (socketManager.State.Equals("Open"))
+            
+            if (this.socketManager.State.Equals("Open"))
             {
+                //informo que me voy
+                this.socketManager.Socket.Emit("leave", this.playerId);
+                //me desconecto
                 this.socketManager.Socket.Disconnect();
             }
         }
@@ -370,13 +406,119 @@ public class Scene : MonoBehaviour
         
     }
 
+    //funcion que termina el turno
     private void EndTurn()
     {
-        List<Hashtable> data = new List<Hashtable>();  
+        //desabilitpo el boton de fin de turno
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
+        //envio mensaje de termino de turno y envio las acciones
+        message("Turn End!", 20, 1f, delegate { sendActions(); });
+    }
+
+    //funcion que envia las acciones al servidor
+    private void sendActions()
+    {
+        //activo el panel de carga
+        Loading(true, "Enviando información al servidor...");
+        //guardo los datos que enviare
+        List<Hashtable> data = new List<Hashtable>();
         foreach (Action action in this.actions)
         {
             data.Add(action.SerializableAction());
         }
+        //envio la informacion al servidor
         this.socketManager.Socket.Emit("actions", data);
+        //informo al usuario de que estamos a la espera del servidor
+        Loading(true, "Esperando al oponente...");
+
+    }
+
+    //funcion que activa el panel de carga
+    private void Loading(Boolean loading, String text)
+    {
+        if (loading)
+        {
+            //cambio el texto
+            GameObject.Find("Loading Panel").GetComponentInChildren<Text>().text = text;
+            //hago visible y tangible el panel de carga
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().alpha = 1f;
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().interactable = true;
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().blocksRaycasts = true;
+            //lo llevo al frente
+            GameObject.Find("Loading Panel").GetComponent<Image>().transform.SetAsLastSibling();
+        }
+        else
+        {
+            //hago invisible y intangible el panel de carga
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().alpha = 0f;
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().interactable = false;
+            GameObject.Find("Loading Panel").GetComponent<CanvasGroup>().blocksRaycasts = false;
+        }
+    }
+
+    //funcion que muestra un mensaje en pantalla
+    private void message(String message, int size, float delay, UnityAction action)
+    {
+        //cambio el texto
+        GameObject.Find("Message").GetComponentInChildren<Text>().fontSize = size;
+        GameObject.Find("Message").GetComponentInChildren<Text>().text = message;
+        //hago visible el mensaje
+        GameObject.Find("Message").GetComponent<CanvasGroup>().alpha = 1f;
+        //oculto el mensaje despues de un periodo
+        StartCoroutine(waitForHideMessage(delay, action));
+    }
+
+    //funcion que oculta un mensaje en pantalla
+    private IEnumerator waitForHideMessage(float duration, UnityAction action)
+    {
+        //espero los segundos
+        yield return new WaitForSeconds(duration);
+        //oculto el mensaje
+        GameObject.Find("Message").GetComponent<CanvasGroup>().alpha = 0f;
+        //ejecuto las acciones
+        action.Invoke();
+    }
+
+    //funcion que se ejecuta al inciar el juego (primer turno)
+    private void gameBegin(Socket socket, Packet packet, params object[] args)
+    {
+        this.gameId = int.Parse(args[0].ToString());
+        Loading(false, "");
+        message("Turn Start!", 20, 1f, delegate { });
+    }
+
+    //funcion que se ejecuta cuando gano por leave
+    private void victoryByLeave(Socket socket, Packet packet, params object[] args)
+    {
+        Loading(false, "");
+        message("Victory! (by leave)", 20, 3f, delegate { });
+    }
+
+    //funcion que se ejecuta cuando el servidor me envia las respuestas de las acciones realizadas
+    private void actionsResponse(Socket socket, Packet packet, params object[] args)
+    {
+        //regreso los botones de los personajes a su estado original
+        foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+        {
+            //dejo los botones de personajes activos;
+            button.GetComponent<ButtonChar>().isActive = true;
+            button.GetComponent<CanvasGroup>().interactable = false;
+        }
+        //regreso el boton end turn estado original
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
+        //oculto el panel de carga
+        Loading(false, "");
+        //informo al jugador que empieza la fase de batalla
+        message("Battle Phase!", 20, 1f, delegate { });
+        List<object> data = args[0] as List<object>;
+        foreach (object actionData in data)
+        {
+            Debug.Log("aqui");
+            Dictionary<string, object> action = actionData as Dictionary<string, object>;
+            Debug.Log(action["owner"]);
+        }
+        //Debug.Log(data);
     }
 }

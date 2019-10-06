@@ -64,6 +64,7 @@
     <Compile Include="Assets\Domain\ButtonAct.cs" />
     <Compile Include="Assets\Domain\ButtonChar.cs" />
     <Compile Include="Assets\Domain\Character.cs" />
+    <Compile Include="Assets\Domain\LoadingIcon.cs" />
     <Compile Include="Assets\Domain\Scene.cs" />
     <Compile Include="Assets\Domain\Skill.cs" />
     <Compile Include="Assets\Domain\Stat.cs" />
