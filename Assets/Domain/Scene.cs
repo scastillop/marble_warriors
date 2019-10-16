@@ -7,6 +7,8 @@ using BestHTTP;
 using BestHTTP.SocketIO;
 using UnityEngine.Scripting;
 using UnityEngine.Events;
+using System.Reflection;
+using System.Linq;
 
 public class Scene : MonoBehaviour
 
@@ -23,6 +25,8 @@ public class Scene : MonoBehaviour
     private SocketManager socketManager;
     private int playerId;
     private int gameId;
+    private int performingAction;
+    private List<object> performingActions;
 
     //metodo que se ejecuta al iniciar la escena
     private void Start()
@@ -31,7 +35,7 @@ public class Scene : MonoBehaviour
         //Loading(true, "Cargando...");
 
         //seteo mi id de jugador
-        this.playerId = 2;
+        this.playerId = 1;
 
         //generando equipos
         this.allied = new Team(1); //id jugador 1
@@ -135,7 +139,7 @@ public class Scene : MonoBehaviour
         //informo que estoy listo para comenzar la partida identificandome
         socketManager.Socket.Emit("readyToBegin", this.playerId);
         //Loading(true, "Esperando al oponente...");
-        
+
     }
 
     //funcion que se ejecuta cuando hay un error de conexion con el servidor
@@ -156,13 +160,13 @@ public class Scene : MonoBehaviour
     private GameObject MakeChar(int position)
     {
         //genero las habilidades del personaje
-        Stat statSkill = new Stat(-10, 0, 0, 0, 0, 0, 0);
+        Stat statSkill = new Stat(-30, 0, 0, 0, 0, 0, 0);
         List<Skill> skillSet = new List<Skill>();
-        skillSet.Add(new Skill("Basic Attack", 10, statSkill, 0));
+        skillSet.Add(new Skill(1,"Basic Attack", 10, statSkill, 0));
 
         //genero las estadisticas del personaje
         Stat statChar = new Stat(100, 100, 30, 20, 30, 30, 20);
-        Stat actualStatChar = new Stat(70, 100, 30, 20, 30, 30, 20);
+        Stat actualStatChar = new Stat(100, 100, 30, 20, 30, 30, 20);
 
         //instancio el personaje en pantalla
         GameObject character = Instantiate(this.characterPrefab, this.positions[position], this.rotations[position]);
@@ -204,7 +208,7 @@ public class Scene : MonoBehaviour
     //funcion que se ejecuta al seleccionar un Personaje en el menu
     private void CharClick(Button button)
     {
-        allied.characters[0].GetComponent<Character>().Move(new Vector3(145.0f+3f, 0.0f, 164.0f + 12f));
+        //allied.characters[0].GetComponent<Character>().performAction(1, new Vector3(145.0f, 0.0f, 164.0f + 12f), new Vector3(145.0f + 6f, 0.0f, 164.0f + 12f));
         //cambio la posicion del menu de acciones
         GameObject.Find("Actions Menu").GetComponent<RectTransform>().position = new Vector2(GameObject.Find("Actions Menu").GetComponent<RectTransform>().position.x, button.transform.position.y );
 
@@ -512,13 +516,71 @@ public class Scene : MonoBehaviour
         Loading(false, "");
         //informo al jugador que empieza la fase de batalla
         message("Battle Phase!", 20, 1f, delegate { });
+        //guardo las acciones a realizar
+        this.performingActions = new List<object>();
         List<object> data = args[0] as List<object>;
         foreach (object actionData in data)
         {
-            Debug.Log("aqui");
-            Dictionary<string, object> action = actionData as Dictionary<string, object>;
-            Debug.Log(action["owner"]);
+            performingActions.Add(actionData);
         }
-        //Debug.Log(data);
+        //seteo la primera accion a realizar
+        this.performingAction = 0;
+        //comienzo a realizar las acciones
+        performAction();
+    }
+
+    //funcion que realizar las acciones
+    private void performAction()
+    {
+        int count = 0;
+        //recorro las acciones que se estan realizando
+        foreach (object actionData in this.performingActions)
+        {
+            //si la accion que estoy realizando existe
+            if(count == this.performingAction)
+            {
+                Dictionary<string, object> action = actionData as Dictionary<string, object>;
+                //identifico al owner
+                GameObject owner;
+                //si el owner es < 5 quiere decir que es un aliado
+                if (Convert.ToInt32(action["owner"]) < 5)
+                {
+                    owner = allied.characters[Convert.ToInt32(action["owner"])];
+                }
+                //si no, es un enemigo
+                else
+                {
+                    owner = enemy.characters[Convert.ToInt32(action["owner"]) - 5];
+                }
+                //identifico al affected
+                GameObject affected;
+                Vector3 targetPosition;
+                //si el affected es < 5 quiere decir que es un aliado
+                if (Convert.ToInt32(action["affected"]) < 5)
+                {
+                    affected = allied.characters[Convert.ToInt32(action["affected"])];
+                    //defino la posicion donde quiero llegar
+                    targetPosition = new Vector3(affected.transform.position.x - 6f, affected.transform.position.y, affected.transform.position.z);
+                }
+                //si no, es un enemigo
+                else
+                {
+                    affected = enemy.characters[Convert.ToInt32(action["affected"]) - 5];
+                    //defino la posicion donde quiero llegar
+                    targetPosition = new Vector3(affected.transform.position.x + 6f, affected.transform.position.y, affected.transform.position.z);
+                }
+                //obtengo el estado del afectado una vez realizada la accion
+                Dictionary<string, object> affectedStatMap = action["affectedStat"] as Dictionary<string, object>;
+                Stat affectedStat = new Stat(Convert.ToInt32(affectedStatMap["hp"]), Convert.ToInt32(affectedStatMap["mp"]), Convert.ToInt32(affectedStatMap["atk"]), Convert.ToInt32(affectedStatMap["def"]), Convert.ToInt32(affectedStatMap["spd"]), Convert.ToInt32(affectedStatMap["mst"]), Convert.ToInt32(affectedStatMap["mdf"]));
+                //obtengo el estado del owner una vez realizada la accion
+                Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
+                Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
+                //realizo la accion
+                owner.GetComponent<Character>().performAction(Convert.ToInt32(action["skillId"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().setStat(affectedStat); owner.GetComponent<Character>().setStat(ownerStat); UpdateCharacterMenu();}, delegate { performAction(); });
+            }
+            count++;
+        }
+        //cambio la accion que se esta realizando
+        this.performingAction++;
     }
 }

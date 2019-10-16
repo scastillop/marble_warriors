@@ -137,7 +137,7 @@ io.on("connection",function(socket){
 			var pair=true;
 			for (var i =0 ; i < 5; i++) {
 				//defino al jugador en turno
-				var playerOnTurn = games[players[socket.id].gameIndex].actionTurn; 
+				var playerOnTurn = games[players[socket.id].gameIndex].actionTurn;
 				//defino al rival
 				for(var playerKey in games[players[socket.id].gameIndex].players){
 					if(playerKey!=games[players[socket.id].gameIndex].actionTurn){
@@ -150,8 +150,10 @@ io.on("connection",function(socket){
 				if(games[gameIndex].players[playerOnTurn].actions[i]){
 					//guardo la accion para utilizarla mas adelante
 					var action = games[gameIndex].players[playerOnTurn].actions[i];
-					//redusco el mana del que realizo la accion
+					//reduzco el mana del que realizo la accion
 					games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp=games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp-games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].cost;
+					//guardo el id de la habilidad
+					action.skillId = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].id;
 					//si el afectado es del equipo enemigo
 					if(action.affected>=5){
 						//verifico si cumple con los requisitos
@@ -162,16 +164,18 @@ io.on("connection",function(socket){
 							//genero la accion de respuesta (datos que van a los jugadores)
 							var actionResponse = action;
 							//primero le seteo los nuevos stats del afectado
-							actionResponse.affectedStat = games[gameIndex].players[playerRival].characters[action.affected-5].actualStat;
+							actionResponse.affectedStat = Object.assign({} , games[gameIndex].players[playerRival].characters[action.affected-5].actualStat);
 							//tambien del owner
-							actionResponse.ownerStat = games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat;
+							actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
 							//guardo la accion en la respuesta para el jugador en turno
 							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+							//console.log(games[gameIndex].players[playerOnTurn].actionsResponse);
 							//actualizo los ids de los personajes pensando en el rival
-							actionResponse.owner = actionResponse.owner+5
-							actionResponse.affected = actionResponse.affected-5
+							var rivalResponse = Object.assign({} , actionResponse);
+							rivalResponse.owner = actionResponse.owner+5;
+							rivalResponse.affected = actionResponse.affected-5;
 							//guardo la accion en la respuesta para el rival
-							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
 						}	
 					}else{
 						//si el afectado es del mismo equipo
@@ -183,16 +187,17 @@ io.on("connection",function(socket){
 							//genero la accion de respuesta (datos que van a los jugadores)
 							var actionResponse = action;
 							//primero le seteo los nuevos stats del afectado
-							actionResponse.affectedStat = games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat
+							actionResponse.affectedStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat);
 							//tambien del owner
-							actionResponse.ownerStat = games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat;
+							actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
 							//guardo la accion en la respuesta para el jugador en turno
 							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
 							//actualizo los ids de los personajes pensando en el rival
-							actionResponse.owner = actionResponse.owner+5
-							actionResponse.affected = actionResponse.affected+5
+							var rivalResponse = Object.assign({} , actionResponse);
+							rivalResponse.owner = actionResponse.owner+5;
+							rivalResponse.affected = actionResponse.affected+5;
 							//guardo la accion en la respuesta para el rival
-							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
 						}
 					}
 				}
@@ -243,7 +248,7 @@ io.on("connection",function(socket){
 function MakeChar(position){
 	//genero estadisticas para una habilidad
 	var statSkill = {
-		hp: -10,
+		hp: -30,
 	    mp: 0,
 	    atk: 0,
 	    def: 0,
@@ -254,6 +259,7 @@ function MakeChar(position){
 
 	//genero una habilidad
 	var skill = {
+		id: 1,
 		skillName: "Basic Attack",
 	    cost: 10,
 	    stats: statSkill,
