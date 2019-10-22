@@ -13,7 +13,7 @@ public class Character : MonoBehaviour
     public Stat actualStat;
     public List<Skill> skills;
     public GameObject sliderPrefab;
-    public GameObject hpSlider;
+    private GameObject hpSlider;
     private Animator animator;
     private Quaternion initialRotation;
     private Vector3 initialPosition;
@@ -43,7 +43,6 @@ public class Character : MonoBehaviour
         this.hpSlider.GetComponent<Slider>().transform.SetParent(canvasTransform, false);    
         //seteo el valor de la barra de vida
         UpdateBars();
-        
     }
 
     public void UpdateBars()
@@ -71,19 +70,39 @@ public class Character : MonoBehaviour
         //verifico si el personaje esta realizando alguna accion
         switch (this.actionStatus)
         {
+            //si el personaje esta despertando
+            case "awaking":
+                //si el personaje ya termino de animarse paso al siguiente estado (caminar)
+                if (!AnimatorIsPlaying("awaking"))
+                {
+                    //activo la animacion de caminar
+                    this.animator.Play("walk_sword");
+                    //cambio el estado
+                    this.actionStatus = "going";
+                }
+                break;
             //si el personaje se dirige a realizar una accion
             case "going":
                 //si aun no llega a su objetivo
-                if (transform.position != this.targetPosition)
+                if (this.transform.position != this.targetPosition)
                 {
-                    //activo la animacion de caminar
-                    animator.Play("walk_sword");
                     //actualizo la barra de vida para que se mantenga sobre el personaje
                     UpdateBars();
                     //giro al personaje hacia su objetivo
-                    transform.LookAt(this.targetPosition);
+                    this.transform.LookAt(this.targetPosition);
                     //muevo al personaje
-                    transform.position = Vector3.MoveTowards(transform.position, this.targetPosition, Time.deltaTime + 0.05f);
+                    this.transform.position = Vector3.MoveTowards(this.transform.position, this.targetPosition, Time.deltaTime * 6f);
+                    //giro paulatino
+                    /*
+                    //determino que empiece a rotar cuando quede cierta distancia
+                    if(Vector3.Distance(this.transform.position, this.targetPosition)<2f)
+                    {
+                        //calcula la rotacion final
+                        var rotation = Quaternion.LookRotation(this.targetPosition - this.transform.position);
+                        //lo giro paulatinamente
+                        this.transform.rotation = Quaternion.RotateTowards(transform.rotation, rotation, Time.deltaTime * 1.1f);
+                    }
+                    */
                 }
                 //si ya llego a su objetivo
                 else
@@ -92,7 +111,7 @@ public class Character : MonoBehaviour
                     if (actionPerforming == 1)
                     {
                         //si es el ataque basico (id=1)
-                        animator.Play("sword_attack_2");
+                        this.animator.Play("sword_attack_2");
                     }
                     //cambio el estado de la accion a "actuando"
                     this.actionStatus = "acting";
@@ -105,10 +124,10 @@ public class Character : MonoBehaviour
                 //si el personaje ya termino de moverse
                 if (!AnimatorIsPlaying())
                 {
+                    //activo la animacion de caminar
+                    this.animator.Play("walk_sword");
                     //cambio el estado de la accion para que el personaje regrese a su posicion inicial
                     this.actionStatus = "backing";
-                    //aplico los cambios en el afectado
-                    this.executeChanges.Invoke();
                 }
                 break;
             //si el personaje esta regresando a su posicion original
@@ -116,27 +135,32 @@ public class Character : MonoBehaviour
                 //si aun no llega a su posicion inicial
                 if (transform.position != this.initialPosition)
                 {
-                    //activo la animacion de caminar
-                    animator.Play("walk_sword");
                     //actualizo la barra de vide para que se mantenga sobre el personaje
                     UpdateBars();
                     //giro al personaje hacia su objetivo
                     transform.LookAt(this.initialPosition);
                     //muevo al personaje
-                    transform.position = Vector3.MoveTowards(transform.position, this.initialPosition, Time.deltaTime + 0.05f);
+                    transform.position = Vector3.MoveTowards(transform.position, this.initialPosition, Time.deltaTime * 6f);
                 }
                 //si ya llego a su posicion inicial
                 else
                 {
-                    //cambio el estado de la accion a "detenido"
+                    //detengo la animacion
+                    this.animator.Play("sleep");
+                    //cambio el estado de la accion a "durmiendo"
                     this.actionStatus = "stand";
                     //giro al personaje hacia su orientacion original
                     transform.rotation = this.initialRotation;
-                    //detengo la animacion
-                    animator.Play("stand");
                     //continuo con la siguiente accion
                     this.nextAction.Invoke();
                 }
+                break;
+            //si el personaje esta durmiendo
+            case "stand":
+               
+                break;
+            case "dying":
+                
                 break;
         }
     }
@@ -149,24 +173,33 @@ public class Character : MonoBehaviour
         this.affectedPosition = affectedPosition;
         //le indico cual es la habilidad que debe ejecutar
         this.actionPerforming = actionId;
-        //le indico que se esta realizando una accion
-        this.actionStatus = "going";
         //le indico los cambios a realizar (en el afectado)
         this.executeChanges = executeChanges;
         //le indico cual es la siguiente acciona  realizar
         this.nextAction = nextAction;
+        //comienzo la animacion de despertarse
+        this.animator.Play("awaking");
+        //le indico que se esta realizando una accion
+        this.actionStatus = "awaking";
     }
 
     //funcion que detecto si es que el personaje esta realizando una animacion
     private bool AnimatorIsPlaying()
     {
-        return animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1.2f;
+        return this.animator.GetCurrentAnimatorStateInfo(0).normalizedTime < 1f;
     }
 
     //funcion que determina si el personaje esta realizando una animacion en particular
     private bool AnimatorIsPlaying(string stateName)
     {
-        return AnimatorIsPlaying() && animator.GetCurrentAnimatorStateInfo(0).IsName(stateName);
+        if (this.animator.GetCurrentAnimatorStateInfo(0).IsName(stateName)&& !AnimatorIsPlaying())
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
 
     //funcion que sirve para actualizar las estadisticas del personaje
@@ -174,5 +207,20 @@ public class Character : MonoBehaviour
     {
         this.actualStat = stat;
         UpdateBars();
+        //si el personaje murio, ejecuta su animacion
+        if (this.actualStat.hp == 0)
+        {            
+            this.animator.Play("sword_death");
+            this.actionStatus = "dying";
+            //y oculto su barra de vida
+            this.hpSlider.GetComponent<CanvasGroup>().alpha = 0;
+        }
+    }
+
+    //funcion que ejecuta los cambios (que realizan las acciones)
+    private void executeAction()
+    {
+        //aplico los cambios en el afectado
+        this.executeChanges.Invoke();
     }
 }

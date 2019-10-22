@@ -27,12 +27,13 @@ public class Scene : MonoBehaviour
     private int gameId;
     private int performingAction;
     private List<object> performingActions;
+    private bool gameOver;
 
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
         //seteo el panel de carga
-        //Loading(true, "Cargando...");
+        Loading(true, "Loading...");
 
         //seteo mi id de jugador
         this.playerId = 1;
@@ -138,7 +139,8 @@ public class Scene : MonoBehaviour
 
         //informo que estoy listo para comenzar la partida identificandome
         socketManager.Socket.Emit("readyToBegin", this.playerId);
-        //Loading(true, "Esperando al oponente...");
+        //cambio el mensaje del panel de carga
+        Loading(true, "Waiting for the opponent...");
 
     }
 
@@ -160,7 +162,7 @@ public class Scene : MonoBehaviour
     private GameObject MakeChar(int position)
     {
         //genero las habilidades del personaje
-        Stat statSkill = new Stat(-30, 0, 0, 0, 0, 0, 0);
+        Stat statSkill = new Stat(-40, 0, 0, 0, 0, 0, 0);
         List<Skill> skillSet = new List<Skill>();
         skillSet.Add(new Skill(1,"Basic Attack", 10, statSkill, 0));
 
@@ -202,6 +204,13 @@ public class Scene : MonoBehaviour
                     slider.value = (float) button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.mp / button.GetComponent<ButtonChar>().character.GetComponent<Character>().initialStat.mp;
                 }
             }
+            //si el personaje murio desactivo el boton
+            if (button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.hp == 0)
+            {
+                button.GetComponent<ButtonChar>().isActive = false;
+                button.GetComponent<CanvasGroup>().interactable = false;
+            }
+
         }
     }
 
@@ -424,7 +433,7 @@ public class Scene : MonoBehaviour
     private void sendActions()
     {
         //activo el panel de carga
-        Loading(true, "Enviando información al servidor...");
+        Loading(true, "Sending information to the server...");
         //guardo los datos que enviare
         List<Hashtable> data = new List<Hashtable>();
         foreach (Action action in this.actions)
@@ -434,7 +443,7 @@ public class Scene : MonoBehaviour
         //envio la informacion al servidor
         this.socketManager.Socket.Emit("actions", data);
         //informo al usuario de que estamos a la espera del servidor
-        Loading(true, "Esperando al oponente...");
+        Loading(true, "Waiting for the opponent...");
 
     }
 
@@ -502,16 +511,16 @@ public class Scene : MonoBehaviour
     //funcion que se ejecuta cuando el servidor me envia las respuestas de las acciones realizadas
     private void actionsResponse(Socket socket, Packet packet, params object[] args)
     {
-        //regreso los botones de los personajes a su estado original
+        //bloqueo el boton end turn
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
+        //bloqueo los botones de los personajes
         foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
         {
-            //dejo los botones de personajes activos;
-            button.GetComponent<ButtonChar>().isActive = true;
+            //dejo los botones de personajes inactivos;
+            button.GetComponent<ButtonChar>().isActive = false;
             button.GetComponent<CanvasGroup>().interactable = false;
         }
-        //regreso el boton end turn estado original
-        GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
-        GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
         //oculto el panel de carga
         Loading(false, "");
         //informo al jugador que empieza la fase de batalla
@@ -532,8 +541,29 @@ public class Scene : MonoBehaviour
     //funcion que realizar las acciones
     private void performAction()
     {
+        //si ya no existen mas acciones para realizar
+        if (this.performingActions.Count <= this.performingAction)
+        {
+            //termino el turno
+            //limpio las acciones
+            actions = new List<Action>();
+            //regreso los botones de los personajes a su estado original
+            foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+            {
+                //dejo los botones de personajes activos;
+                button.GetComponent<ButtonChar>().isActive = true;
+                button.GetComponent<CanvasGroup>().interactable = true;
+            }
+            //actualizo las barras de estado
+            UpdateCharacterMenu();
+            //regreso el boton end turn estado original
+            GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
+            GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
+            //informo el inicio de un nuevo turno
+            message("Turn Start!", 20, 1f, delegate { });
+        }
+        //si aun existen, recorro las acciones que se estan realizando
         int count = 0;
-        //recorro las acciones que se estan realizando
         foreach (object actionData in this.performingActions)
         {
             //si la accion que estoy realizando existe
@@ -576,11 +606,54 @@ public class Scene : MonoBehaviour
                 Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
                 Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
                 //realizo la accion
-                owner.GetComponent<Character>().performAction(Convert.ToInt32(action["skillId"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().setStat(affectedStat); owner.GetComponent<Character>().setStat(ownerStat); UpdateCharacterMenu();}, delegate { performAction(); });
+                owner.GetComponent<Character>().performAction(Convert.ToInt32(action["skillId"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().setStat(affectedStat); owner.GetComponent<Character>().setStat(ownerStat); UpdateCharacterMenu(); this.gameOver = isGameOver(); }, delegate {if (!this.gameOver){ performAction(); }; });
             }
             count++;
         }
         //cambio la accion que se esta realizando
         this.performingAction++;
+    }
+
+    //funcion que verifica si algun jugador gano
+    private bool isGameOver()
+    {
+        bool isOver = false;
+        //recorro los personajes aliados
+        bool charsDead = true;
+        foreach (GameObject character in allied.characters)
+        {
+            //busco si aun existen personajes vivos
+            if (character.GetComponent<Character>().actualStat.hp > 0)
+            {
+                charsDead = false;
+            }
+        }
+        //si no existen personajes vivos entonces pierde el jugador
+        if (charsDead)
+        {
+            message("Defeat!", 20, 7f, delegate { Loading(true, ""); });
+            isOver = true;
+        }
+        //si aun tengo personajes vivos, verifico que los del rival
+        else
+        {
+            //recorro los personajes enemigos
+            bool enemiesDead = true;
+            foreach (GameObject character in enemy.characters)
+            {
+                //busco si aun existen personajes vivos
+                if (character.GetComponent<Character>().actualStat.hp > 0)
+                {
+                    enemiesDead = false;
+                }
+            }
+            //si no existen personajes vivos entonces pierde el rival
+            if (enemiesDead)
+            {
+                message("Victory!", 20, 7f, delegate { Loading(true, ""); });
+                isOver = true;
+            }
+        }
+        return isOver;
     }
 }

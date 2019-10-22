@@ -182,7 +182,7 @@ io.on("connection",function(socket){
 						//verifico si cumple con los requisitos
 						if(canDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
 							//si cumple las condiciones realizo los cambios en el afectado
-							games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat = changeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[actions.affected].actualStat, games[gameIndex].players[playerOnTurn].characters[action.affected].initialStat);
+							games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat = changeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat, games[gameIndex].players[playerOnTurn].characters[action.affected].initialStat);
 
 							//genero la accion de respuesta (datos que van a los jugadores)
 							var actionResponse = action;
@@ -211,6 +211,8 @@ io.on("connection",function(socket){
 			//envío la respuesta a ambos jugadores
 			for(var playerKey in games[players[socket.id].gameIndex].players){
 				games[players[socket.id].gameIndex].players[playerKey].socket.emit("actionsResponse", games[players[socket.id].gameIndex].players[playerKey].actionsResponse);
+				//seteo al jugador nuevamente en estado de seleccion de acciones
+				games[players[socket.id].gameIndex].players[playerKey].status="selectingActions";
 			}
 
 			//ver por consola el estado de los jugadores
@@ -248,7 +250,7 @@ io.on("connection",function(socket){
 function MakeChar(position){
 	//genero estadisticas para una habilidad
 	var statSkill = {
-		hp: -30,
+		hp: -40,
 	    mp: 0,
 	    atk: 0,
 	    def: 0,
