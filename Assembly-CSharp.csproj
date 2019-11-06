@@ -60,15 +60,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Domain\Action.cs" />
-    <Compile Include="Assets\Domain\ButtonAct.cs" />
-    <Compile Include="Assets\Domain\ButtonChar.cs" />
-    <Compile Include="Assets\Domain\Character.cs" />
-    <Compile Include="Assets\Domain\LoadingIcon.cs" />
-    <Compile Include="Assets\Domain\Scene.cs" />
-    <Compile Include="Assets\Domain\Skill.cs" />
-    <Compile Include="Assets\Domain\Stat.cs" />
-    <Compile Include="Assets\Domain\Team.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\Credentials.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\Digest.cs" />
     <Compile Include="Assets\Downloads\Best HTTP (Pro)\BestHTTP\Authentication\DigestStore.cs" />
@@ -940,9 +931,21 @@
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\Twirl.cs" />
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\VignetteAndChromaticAberration.cs" />
     <Compile Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Scripts\Vortex.cs" />
-    <Compile Include="Assets\scr.cs" />
-    <Compile Include="Assets\Scripts\Conexion.cs" />
-    <Compile Include="Assets\Scripts\Temporizador.cs" />
+    <Compile Include="Assets\Scripts\Game\Action.cs" />
+    <Compile Include="Assets\Scripts\Game\ButtonAct.cs" />
+    <Compile Include="Assets\Scripts\Game\ButtonChar.cs" />
+    <Compile Include="Assets\Scripts\Game\Character.cs" />
+    <Compile Include="Assets\Scripts\Game\GameScene.cs" />
+    <Compile Include="Assets\Scripts\Game\LoadingIcon.cs" />
+    <Compile Include="Assets\Scripts\Game\Skill.cs" />
+    <Compile Include="Assets\Scripts\Game\Stat.cs" />
+    <Compile Include="Assets\Scripts\Game\Team.cs" />
+    <Compile Include="Assets\Scripts\Intro\IntroScene.cs" />
+    <Compile Include="Assets\Scripts\Intro\LogoIntro.cs" />
+    <Compile Include="Assets\Scripts\Intro\SearchOpponent.cs" />
+    <Compile Include="Assets\Scripts\Test\Conexion.cs" />
+    <Compile Include="Assets\Scripts\Test\scr.cs" />
+    <Compile Include="Assets\Scripts\Test\Temporizador.cs" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\GlassRefraction\Shaders\GlassStainedBumpDistort.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\_BloomAndFlares\BlendOneOne.shader" />
     <None Include="Assets\Downloads\NatureStarterKit2\Standard Assets\Effects\ImageEffects\Shaders\NoiseEffectShaderRGB.shader" />

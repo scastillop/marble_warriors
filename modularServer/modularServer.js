@@ -2,12 +2,39 @@
 var express=require("express");
 var app=express();
 var server=require("http").createServer(app);
-var io=require("socket.io").listen(server);
-var port=9010;
-
+var ioServer=require("socket.io").listen(server);
+var ioClient=require('socket.io-client');
+var serverUrl='http://fex02.ddns.net';
+var serverPort=9000;
+var myUrl='http://fex02.ddns.net';
+var myPort=9010;
 //inicio el servidor
-server.listen(port, function() {
-	console.log(new Date(Date.now()).toLocaleString()+' Servidor iniciado en el puerto '+port+'...');
+server.listen(myPort, function() {
+	console.log(new Date(Date.now()).toLocaleString()+' Servidor iniciado en el puerto '+myPort+'...');
+});
+
+//inicio el cliente
+socketClient = ioClient.connect(serverUrl+":"+serverPort);
+
+//si me logro connectar
+socketClient.on('connect', () => {
+	//envio mis datos
+	socketClient.emit('SuscribeServer', myUrl+":"+myPort, function(){
+		//informo que se conecto
+		console.log(new Date(Date.now()).toLocaleString()+' Conexión con el servidor principal exitosa!'); 
+	});
+});
+
+//si no logro conectarme 
+socketClient.on('connect_error', () => {
+	//informo que no se conecto
+	console.log(new Date(Date.now()).toLocaleString()+' La conexión con el servidor principal falló.'); // false
+});
+
+//si me desconecto del servidor
+socketClient.on('disconnect', () => {
+	//informo
+	console.log(new Date(Date.now()).toLocaleString()+' Se perdio la conexión con el servidor principal.'); // false
 });
 
 //aqui se guardaran las partidas en curso
@@ -56,12 +83,12 @@ gamesIndex++;
 
 
 //cuando un cliente se conecta
-io.on("connection",function(socket){
-	//informo que se conecto un cliente
-	console.log(new Date(Date.now()).toLocaleString()+" Cliente conectado, desde "+socket.request.connection.remoteAddress+", con el id:"+socket.id);
+ioServer.on("connection",function(socket){
 
 	//cuando un cliente me informa que esta listo para iniciar la partida
-	socket.on("readyToBegin", function(playerId){
+	socket.on("ReadyToBegin", function(playerId){
+		//informo que se conecto un cliente
+		console.log(new Date(Date.now()).toLocaleString()+" Cliente conectado, desde "+socket.request.connection.remoteAddress);
 		//busco si existe algun juego que esté esperando este jugador
 		for(var key in games){
 			//busco juegos que aun no han comenzado
@@ -93,17 +120,15 @@ io.on("connection",function(socket){
 					//informo a los jugadores de que el juego ha empezado y actualizo el estado de los jugadores
 					for(var playerKey in games[key].players){
 						games[key].players[playerKey].status="selectingActions";
-						games[key].players[playerKey].socket.emit("gameBegin",key);
+						games[key].players[playerKey].socket.emit("GameBegin",key);
 					}
 				}
 			}
 		};
 	});
 
-	//socket.emit("ping","lindo mensaje del servidor");
-
 	//recibe las acciones enviadas por un cliente
-	socket.on("actions",function(actions){
+	socket.on("Actions",function(actions){
 		//guardo las acciones
 		games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].actions=actions;
 		//actualizo el estado del jugador
@@ -157,9 +182,9 @@ io.on("connection",function(socket){
 					//si el afectado es del equipo enemigo
 					if(action.affected>=5){
 						//verifico si cumple con los requisitos
-						if(canDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5])){
+						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5])){
 							//si cumple las condiciones realizo los cambios en el afectado
-							games[gameIndex].players[playerRival].characters[action.affected-5].actualStat = changeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat);
+							games[gameIndex].players[playerRival].characters[action.affected-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat);
 							
 							//genero la accion de respuesta (datos que van a los jugadores)
 							var actionResponse = action;
@@ -180,9 +205,9 @@ io.on("connection",function(socket){
 					}else{
 						//si el afectado es del mismo equipo
 						//verifico si cumple con los requisitos
-						if(canDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
+						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
 							//si cumple las condiciones realizo los cambios en el afectado
-							games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat = changeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat, games[gameIndex].players[playerOnTurn].characters[action.affected].initialStat);
+							games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat, games[gameIndex].players[playerOnTurn].characters[action.affected].initialStat);
 
 							//genero la accion de respuesta (datos que van a los jugadores)
 							var actionResponse = action;
@@ -210,7 +235,7 @@ io.on("connection",function(socket){
 			}
 			//envío la respuesta a ambos jugadores
 			for(var playerKey in games[players[socket.id].gameIndex].players){
-				games[players[socket.id].gameIndex].players[playerKey].socket.emit("actionsResponse", games[players[socket.id].gameIndex].players[playerKey].actionsResponse);
+				games[players[socket.id].gameIndex].players[playerKey].socket.emit("ActionsResponse", games[players[socket.id].gameIndex].players[playerKey].actionsResponse);
 				//seteo al jugador nuevamente en estado de seleccion de acciones
 				games[players[socket.id].gameIndex].players[playerKey].status="selectingActions";
 			}
@@ -238,7 +263,7 @@ io.on("connection",function(socket){
 				//mientras no sea el mismo jugador que me evia el mensaje y este conectado
 				if(games[players[socket.id].gameIndex].players[playerKey].status=="connected"){
 					if(games[players[socket.id].gameIndex].players[playerKey].socket.id!=socket.id){
-						games[players[socket.id].gameIndex].players[playerKey].socket.emit("victoryByLeave", players[socket.id].gameIndex);
+						games[players[socket.id].gameIndex].players[playerKey].socket.emit("VictoryByLeave", players[socket.id].gameIndex);
 					}
 				}
 			}
@@ -298,7 +323,7 @@ function MakeChar(position){
 }
 
 //funcion que calcula el efecto de los stats de habilidades sobre los stat de personajes
-function changeStat(statOwner, skill, statAffected, initialStat){
+function ChangeStat(statOwner, skill, statAffected, initialStat){
 	//recorro los atributos del stat de la habilidad
 	var statSkill = skill.stats;
 	for(var attributeSkill in statSkill){
@@ -356,7 +381,7 @@ function changeStat(statOwner, skill, statAffected, initialStat){
 }
 
 //funcion que indica si un personaje puede realizar una accion
-function canDo(owner, skill, affected){
+function CanDo(owner, skill, affected){
 	//el owner debe estar vivo
 	//el owner debe tener mana suficiente
 	//el affected debe estar vivo
