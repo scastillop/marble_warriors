@@ -8,6 +8,18 @@ var serverUrl='http://fex02.ddns.net';
 var serverPort=9000;
 var myUrl='http://fex02.ddns.net';
 var myPort=9010;
+
+/*
+
+// Como usar los métodos para traer info de la base de datos
+var mysqlConnection = require('../databaseConnection/mysqlConnector');
+
+mysqlConnection.findUserByEmail('se.castillop@gmail.com', function (err, result) {
+  if (err) console.log("Database error!: "+err);
+  else console.log(result);
+});
+*/
+
 //inicio el servidor
 server.listen(myPort, function() {
 	console.log(new Date(Date.now()).toLocaleString()+' Servidor iniciado en el puerto '+myPort+'...');
