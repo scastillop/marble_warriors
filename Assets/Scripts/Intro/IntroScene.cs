@@ -6,17 +6,23 @@ using UnityEngine.UI;
 using BestHTTP;
 using BestHTTP.SocketIO;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class IntroScene : MonoBehaviour
 {
     public Button searchOpponent;
     private SocketManager socketManager;
     private int playerId;
+    private bool searchingOpponent;
 
     void Start()
     {
         //seteo el id del jugador
         this.playerId = 1;
+
+        //informo que me conectare al servidor 
+        Loading(true, "Connection failed trying to reconnect...");
+
         //instancio la conexion con el servidor
         //desabilito los logs (ya que yo los voy a realizar solo si los requiero)
         HTTPManager.Logger.Level = BestHTTP.Logger.Loglevels.None;
@@ -24,22 +30,33 @@ public class IntroScene : MonoBehaviour
         //seteo las configuraciones de reconexion
         TimeSpan miliSecForReconnect = TimeSpan.FromMilliseconds(1000);
         SocketOptions options = new SocketOptions();
-        options.ReconnectionAttempts = 3;
         options.AutoConnect = true;
         options.Reconnection = true;
         options.ReconnectionDelay = miliSecForReconnect;
 
-        //instancio la conexion con el servidor modular
-        this.socketManager = new SocketManager(new Uri("http://localhost:9000/socket.io/"), options);
+        //instancio la conexion con el servidor principal
+        this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9000/socket.io/"), options);
 
-        //cuando el servidor encuentra un oponente
-        this.socketManager.Socket.On("OpponentFound", OpponentFound);
+        //cuando la conexion con el servidor falla
+        this.socketManager.Socket.On("connect_error", ConnectionError);
+
+        //cuando me conecto correctamente al servidor
+        this.socketManager.Socket.On("connect", Connected);
+
+        //cuando se desconecta del servidor
+        this.socketManager.Socket.On("disconnect", Disconnected);        
 
         //inicio la conexion con el servidor
         this.socketManager.Open();
 
+        //cuando el servidor encuentra un oponente
+        this.socketManager.Socket.On("OpponentFound", OpponentFound);
+
         //seteo la funcion en el boton de busca oponente
         searchOpponent.onClick.AddListener(delegate { SearchOpponent(); });
+
+        //informo que aun no empeizo a buscar oponente
+        this.searchingOpponent = false;
     }
 
     void Update()
@@ -50,6 +67,8 @@ public class IntroScene : MonoBehaviour
     //funcion que se ejecuta al presionar el boton buscar oponente
     private void SearchOpponent()
     {
+        //informo que estoy buscando oponente
+        this.searchingOpponent = true;
         //detenego el parpadeo del boton buscar oponente
         searchOpponent.GetComponent<SearchOpponent>().StopBlinking();
         //muestro la pantalla de carga
@@ -63,6 +82,7 @@ public class IntroScene : MonoBehaviour
     {
         Loading(false, "");
         Message("Opponent Found!", 20, 1f, delegate {});
+        SceneManager.LoadScene("CharacterSelection");
     }
 
     //funcion que activa el panel de carga
@@ -110,4 +130,31 @@ public class IntroScene : MonoBehaviour
         //ejecuto las acciones
         action.Invoke();
     }
+
+    //funcion que se ejecuta cuando falla la conexion con el servidor.
+    private void ConnectionError(Socket socket, Packet packet, params object[] args)
+    {
+        Loading(true, "Connection failed trying again...");
+    }
+
+    //funcion que se ejecuta cuando falla la conexion con el servidor.
+    private void Disconnected(Socket socket, Packet packet, params object[] args)
+    {
+        Loading(true, "Connection lost trying to reconnect..");
+    }
+
+    //funcion que se ejecuta cuando me conecto con el servidor
+    private void Connected(Socket socket, Packet packet, params object[] args)
+    {
+        socketManager.Socket.Emit("SuscribeClient", this.playerId);
+        if (this.searchingOpponent)
+        {
+            Loading(true, "Searching opponent...");
+        }
+        else
+        {
+            Loading(false, "");
+        }
+    }
+
 }

@@ -2091,7 +2091,6 @@ MonoBehaviour:
   model: 0
   sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
     type: 3}
-  hpSlider: {fileID: 0}
 --- !u!1 &6216438986169108839
 GameObject:
   m_ObjectHideFlags: 0

@@ -942,6 +942,9 @@
     <Compile Include="Assets\GoogleSignIn\Impl\NativeFuture.cs" />
     <Compile Include="Assets\GoogleSignIn\Impl\SignInHelperObject.cs" />
     <Compile Include="Assets\GoogleSignInDemo.cs" />
+    <Compile Include="Assets\Scripts\CharacterSelection\ButtonCharSelection.cs" />
+    <Compile Include="Assets\Scripts\CharacterSelection\CharacterSelectionScene.cs" />
+    <Compile Include="Assets\Scripts\CharacterSelection\ItemCharSelection.cs" />
     <Compile Include="Assets\Scripts\Game\Action.cs" />
     <Compile Include="Assets\Scripts\Game\ButtonAct.cs" />
     <Compile Include="Assets\Scripts\Game\ButtonChar.cs" />

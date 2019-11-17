@@ -36,7 +36,7 @@ public class GameScene : MonoBehaviour
         Loading(true, "Loading...");
 
         //seteo mi id de jugador
-        this.playerId = 2;
+        this.playerId = 1;
 
         //generando equipos
         this.allied = new Team(1); //id jugador 1
@@ -121,7 +121,7 @@ public class GameScene : MonoBehaviour
         options.ReconnectionDelay = miliSecForReconnect;
         
         //instancio la conexion con el servidor modular
-        this.socketManager = new SocketManager(new Uri("http://localhost:9010/socket.io/"), options);
+        this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9010/socket.io/"), options);
         
         //seteo los eventos de error y desconexion
         this.socketManager.Socket.On(SocketIOEventTypes.Error, socketError);
@@ -172,6 +172,11 @@ public class GameScene : MonoBehaviour
 
         //instancio el personaje en pantalla
         GameObject character = Instantiate(this.characterPrefab, this.positions[position], this.rotations[position]);
+
+        foreach (Renderer renderer in character.GetComponentsInChildren<Renderer>())
+        {
+            //renderer.material.shader = Shader.Find("Legacy Shaders/Transparent/Parallax Specular");
+        }
 
         //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
         character.GetComponent<Character>().id = 1;

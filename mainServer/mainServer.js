@@ -31,10 +31,18 @@ io.on("connection",function(socket){
 		callback();
 	});
 
-	//cuando un jugador busca oponente
-	socket.on("SearchOpponent", function(playerId){
+	//cuando un servidor jugaor se conecta
+	socket.on("SuscribeClient", function(playerId){
 		//informo que se conecto un cliente
 		console.log(new Date(Date.now()).toLocaleString()+" Cliente conectado, desde "+socket.request.connection.remoteAddress);
+		//guardo al jugador
+		players[socket.id] = [];
+		players[socket.id].socket = socket;
+		players[socket.id].id = playerId;
+	});
+
+	//cuando un jugador busca oponente
+	socket.on("SearchOpponent", function(playerId){
 		//busco si existe algun juego que esté esperando un jugador
 		var opponentFound = false;
 		for(var key in games){
@@ -48,7 +56,6 @@ io.on("connection",function(socket){
 				};
 				games[key].players.push(player2);
 				//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-				players[socket.id] = [];
 				players[socket.id].gameIndex = key;
 				players[socket.id].playerIndex = 1;
 
