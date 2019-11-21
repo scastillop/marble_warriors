@@ -244,7 +244,7 @@ PlayerSettings:
   AndroidTargetArchitectures: 5
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: Assets/MWKey.keystore
+  AndroidKeystoreName: C:/Users/FEX/Documents/unity/Marble Warriors/Assets/MWKey.keystore
   AndroidKeyaliasName: mwkey
   AndroidBuildApkPerCpuArchitecture: 0
   AndroidTVCompatibility: 1

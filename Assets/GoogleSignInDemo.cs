@@ -17,6 +17,10 @@ public class GoogleSignInDemo : MonoBehaviour
     private Firebase.Auth.FirebaseAuth auth;
     private GoogleSignInConfiguration configuration;
 
+    private void Start()
+    {
+        SignInWithGoogle();
+    }
     private void Awake()
     {
         configuration = new GoogleSignInConfiguration { WebClientId = webClientId, RequestEmail = true, RequestIdToken = true };
@@ -99,7 +103,10 @@ public class GoogleSignInDemo : MonoBehaviour
             //AddToInformation("Email = " + task.Result.Email);
             //AddToInformation("Google ID Token = " + task.Result.IdToken);
             //SignInWithGoogleOnFirebase(task.Result.IdToken);
-            SceneManager.LoadScene("Game");
+            PlayerPrefs.SetString("email", task.Result.Email);
+            PlayerPrefs.SetString("name", task.Result.DisplayName);
+            PlayerPrefs.SetString("token", task.Result.IdToken);
+            SceneManager.LoadScene("Intro");
         }
     }
 

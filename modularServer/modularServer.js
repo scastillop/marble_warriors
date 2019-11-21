@@ -9,51 +9,61 @@ var serverPort=9000;
 var myUrl='http://fex02.ddns.net';
 var myPort=9010;
 
-/*
-
-// Como usar los métodos para traer info de la base de datos
-var mysqlConnection = require('../databaseConnection/mysqlConnector');
-
-mysqlConnection.findUserByEmail('se.castillop@gmail.com', function (err, result) {
-  if (err) console.log("Database error!: "+err);
-  else console.log(result);
-});
-*/
-
-//inicio el servidor
-server.listen(myPort, function() {
-	console.log(new Date(Date.now()).toLocaleString()+' Servidor iniciado en el puerto '+myPort+'...');
-});
-
-//inicio el cliente
-socketClient = ioClient.connect(serverUrl+":"+serverPort);
-
-//si me logro connectar
-socketClient.on('connect', () => {
-	//envio mis datos
-	socketClient.emit('SuscribeServer', myUrl+":"+myPort, function(){
-		//informo que se conecto
-		console.log(new Date(Date.now()).toLocaleString()+' Conexión con el servidor principal exitosa!'); 
-	});
-});
-
-//si no logro conectarme 
-socketClient.on('connect_error', () => {
-	//informo que no se conecto
-	console.log(new Date(Date.now()).toLocaleString()+' La conexión con el servidor principal falló.'); // false
-});
-
-//si me desconecto del servidor
-socketClient.on('disconnect', () => {
-	//informo
-	console.log(new Date(Date.now()).toLocaleString()+' Se perdio la conexión con el servidor principal.'); // false
-});
+//aqui se guardan los datos de los personajes
+var characters = [];
 
 //aqui se guardaran las partidas en curso
 var games = [];
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
 var players = [];
+
+// instancio conexion con la base de datos
+var mysqlConnection = require('../databaseConnection/mysqlConnector');
+
+//rescato los datos de los personajes desde la db
+console.log(new Date(Date.now()).toLocaleString()+' Getting characters from data base...');
+mysqlConnection.FindAllCharactersWithDetails(function (result) {
+	if(result){
+		console.log(new Date(Date.now()).toLocaleString()+' Characters obtained!');
+		//guardo los personajes
+		characters=result;
+
+		//inicio el cliente
+		socketClient = ioClient.connect(serverUrl+":"+serverPort);
+
+		//si me logro connectar
+		socketClient.on('connect', () => {
+			//envio mis datos
+			socketClient.emit('SuscribeServer', myUrl+":"+myPort, function(){
+				//informo que se conecto
+				console.log(new Date(Date.now()).toLocaleString()+' Connection with main server successful!'); 
+			});
+		});
+
+		//si no logro conectarme 
+		socketClient.on('connect_error', () => {
+			//informo que no se conecto
+			console.log(new Date(Date.now()).toLocaleString()+' Connection with main server failed'); // false
+		});
+
+		//si me desconecto del servidor
+		socketClient.on('disconnect', () => {
+			//informo
+			console.log(new Date(Date.now()).toLocaleString()+' Connection with main server was lost'); // false
+		});
+
+		//cuando el servidor principal me envia un juego
+		socketClient.on('SendGame', (data) => {
+			games.push(data);
+		});
+
+		//inicio el servidor
+		server.listen(myPort, function() {
+			console.log(new Date(Date.now()).toLocaleString()+' Server started on port '+myPort+'...');
+		});
+	}
+});
 
 //para efectos de prueba creo una partida (en el futuro esta debera ser creada por el servidor pincipal)
 //creo los personajes de cada jugador
@@ -98,9 +108,9 @@ gamesIndex++;
 ioServer.on("connection",function(socket){
 
 	//cuando un cliente me informa que esta listo para iniciar la partida
-	socket.on("ReadyToBegin", function(playerId){
+	socket.on("ReadyToBegin", function(email){
 		//informo que se conecto un cliente
-		console.log(new Date(Date.now()).toLocaleString()+" Cliente conectado, desde "+socket.request.connection.remoteAddress);
+		console.log(new Date(Date.now()).toLocaleString()+" Client ("+email+") connected from "+socket.request.connection.remoteAddress);
 		//busco si existe algun juego que esté esperando este jugador
 		for(var key in games){
 			//busco juegos que aun no han comenzado
@@ -108,14 +118,26 @@ ioServer.on("connection",function(socket){
 				//busco juegos en los que esté este jugador
 				for(var playerKey in games[key].players){
 					//si lo encuentro
-					if(games[key].players[playerKey].id==playerId){
+					if(games[key].players[playerKey].email==email){
 						//agrego su socket en el juego y cambio el estado del jugador
 						games[key].players[playerKey].socket = socket;
 						games[key].players[playerKey].status = "connected";
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
 						players[socket.id] = [];
 						players[socket.id].gameIndex = key;
-						players[socket.id].playerIndex = playerKey; 
+						players[socket.id].playerIndex = playerKey;
+
+						//obtengo los personajes para el jugador
+						games[key].players[playerKey].characters = [];
+						//recorro los personajes que tengo en el servidor
+						for (var characterKey in characters){
+							//recorro los personajes que tiene seleccionado el jugador
+							for(var characterIndex in games[key].players[playerKey].charactersIndex){
+								if(characters[characterKey].index==games[key].players[playerKey].charactersIndex[characterIndex]){
+									games[key].players[playerKey].characters.push(characters[characterKey]);
+								}
+							}
+						}
 					}
 				}
 				//verifico si ya ambos jugadores estan conectados
@@ -131,8 +153,22 @@ ioServer.on("connection",function(socket){
 					games[key].turn==1;
 					//informo a los jugadores de que el juego ha empezado y actualizo el estado de los jugadores
 					for(var playerKey in games[key].players){
+						//cambio el estado del jugador
 						games[key].players[playerKey].status="selectingActions";
-						games[key].players[playerKey].socket.emit("GameBegin",key);
+						//busco al enemigo
+						for(var playerEnemyKey in games[key].players){
+							//si el indice no es el mismo quiere decir que es el rival
+							if(playerEnemyKey!=playerKey){
+								//genero una variable donde estara la respuesta
+								var allCharacters = [];
+								//obtengo los personajes aliados
+								allCharacters.push(games[key].players[playerKey].characters);
+								//obtengo los personajes del enemigo
+								allCharacters.push(games[key].players[playerEnemyKey].characters);
+								//envio la respuesta al jugador
+								games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
+							}
+						}
 					}
 				}
 			}
@@ -267,7 +303,7 @@ ioServer.on("connection",function(socket){
 
 	//si un cliente se desconecta
 	socket.on('disconnect',function(){
-		console.log(new Date(Date.now()).toLocaleString()+" Cliente desconectado "+socket.request.connection.remoteAddress+", con el id:"+socket.id);
+		console.log(new Date(Date.now()).toLocaleString()+" Client disconnected from "+socket.request.connection.remoteAddress+", with id:"+socket.id);
 		//compruebo que el jugador este en mi lista de jugadores
 		if(players[socket.id]){
 			//si esta informo al oponente que ha ganado por leave
