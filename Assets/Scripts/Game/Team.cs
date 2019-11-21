@@ -7,10 +7,9 @@ public class Team
     public List<GameObject> characters;
 
     //constructor
-    public Team(int user_id)
+    public Team(List<GameObject> characters)
     {
-        this.user_id = user_id;
-        this.characters = new List<GameObject>();
+        this.characters = characters;
     }
 
     //agrega un personaje al equipo

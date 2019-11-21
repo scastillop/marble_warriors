@@ -13,7 +13,7 @@ using System.Linq;
 public class GameScene : MonoBehaviour
 
 {
-    public GameObject characterPrefab;
+    public List<GameObject> characterPrefab;
     private Team allied;
     private Team enemy;
     private Vector3[] positions;
@@ -38,10 +38,6 @@ public class GameScene : MonoBehaviour
         //seteo mi id de jugador
         this.playerId = 1;
 
-        //generando equipos
-        this.allied = new Team(1); //id jugador 1
-        this.enemy = new Team(2); //id jugador 2
-
         //genero las posiciones por defecto para los 10 personajes
         this.positions = new Vector3[10];
         for (int i = 0; i < 5; i++)
@@ -57,41 +53,20 @@ public class GameScene : MonoBehaviour
             this.rotations[i] = Quaternion.Euler(0.0f, -90.0f, 0.0f);
             this.rotations[i+5] = Quaternion.Euler(0.0f, 90.0f, 0.0f);
         }
-
+        
+        /*
         //genero Personajes (agregandolos a su equipo)
         for (int i = 0; i < 5; i++)
         {
             this.allied.AddChar(MakeChar(i));
             this.enemy.AddChar(MakeChar(i+5));
         }
-
-        //seteo datos de los Personajes en la UI
-        int j = 0;
-        foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
-        {
-            button.GetComponent<ButtonChar>().character = allied.characters[j];
-
-            //seteo las funcionalidades de los botones de los personajes
-            button.onClick.AddListener(delegate { CharClick(button); });
-
-            //seteo el color de los botones de personajes (cuando esta desabilitado)
-            ColorBlock cb = button.colors;
-            cb.disabledColor = Color.Lerp(button.colors.normalColor, Color.black, 0.2f);
-            button.colors = cb;
-
-            //dejo los botones de personajes activos;
-            button.GetComponent<ButtonChar>().isActive = true;
-
-            j++;
-        }
+        */
 
         //seteo el color del boton "end turn" (cuando esta desabilitado)
         ColorBlock cb2 = GameObject.Find("End Turn").GetComponent<Button>().colors;
         cb2.disabledColor = Color.Lerp(GameObject.Find("End Turn").GetComponent<Button>().colors.normalColor, Color.black, 0.2f);
         GameObject.Find("End Turn").GetComponent<Button>().colors = cb2;
-
-        //actualizo la UI de estado de los peronajes
-        UpdateCharacterMenu();
 
         //seteo las funcionalidades del menu de acciones
         foreach (Button button in GameObject.Find("Actions Menu").GetComponentsInChildren<Button>())
@@ -138,7 +113,7 @@ public class GameScene : MonoBehaviour
         this.socketManager.Open();
 
         //informo que estoy listo para comenzar la partida identificandome
-        socketManager.Socket.Emit("ReadyToBegin", this.playerId);
+        socketManager.Socket.Emit("ReadyToBegin", PlayerPrefs.GetString("email"));
         //cambio el mensaje del panel de carga
         Loading(true, "Waiting for the opponent...");
 
@@ -171,7 +146,7 @@ public class GameScene : MonoBehaviour
         Stat actualStatChar = new Stat(100, 100, 30, 20, 30, 30, 20);
 
         //instancio el personaje en pantalla
-        GameObject character = Instantiate(this.characterPrefab, this.positions[position], this.rotations[position]);
+        GameObject character = Instantiate(this.characterPrefab[position], this.positions[position], this.rotations[position]);
 
         foreach (Renderer renderer in character.GetComponentsInChildren<Renderer>())
         {
@@ -501,10 +476,91 @@ public class GameScene : MonoBehaviour
     //funcion que se ejecuta al inciar el juego (primer turno)
     private void GameBegin(Socket socket, Packet packet, params object[] args)
     {
-        this.gameId = int.Parse(args[0].ToString());
+        //convierto la informacion en un arreglo relacional
+        List<object> allCharacters = args[0] as List<object>;
+        //procedo a guardar los personajes aliados
+        MakeTeam(allCharacters[0] as List<object>, "allied");
+        //y enemigos
+        MakeTeam(allCharacters[1] as List<object>, "enemy");
+
+        //seteo datos de los Personajes en la UI
+        int j = 0;
+        foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+        {
+            button.GetComponent<ButtonChar>().character = allied.characters[j];
+
+            //seteo las funcionalidades de los botones de los personajes
+            button.onClick.AddListener(delegate { CharClick(button); });
+
+            //seteo el color de los botones de personajes (cuando esta desabilitado)
+            ColorBlock cb = button.colors;
+            cb.disabledColor = Color.Lerp(button.colors.normalColor, Color.black, 0.2f);
+            button.colors = cb;
+
+            //dejo los botones de personajes activos;
+            button.GetComponent<ButtonChar>().isActive = true;
+
+            j++;
+        }
+        //actualizo la UI de estado de los peronajes
+        UpdateCharacterMenu();
+
         Loading(false, "");
         Message("Turn Start!", 20, 1f, delegate { });
     }
+
+    private void MakeTeam(List<object> charactersServer, String type)
+    {
+        int basePosition = 0;
+        if(type == "enemy")
+        {
+            basePosition = 5;
+        }
+        int count = 0;
+        List<GameObject> characters = new List<GameObject>();
+        foreach (Dictionary<string, object> characterServer in charactersServer)
+        {
+            //genero el stat del personaje
+            Dictionary<string, object> s1 = characterServer["initialStat"] as Dictionary<string, object>;
+            Stat initialStat = new Stat(Convert.ToInt32(s1["hp"]), Convert.ToInt32(s1["mp"]), Convert.ToInt32(s1["atk"]), Convert.ToInt32(s1["def"]), Convert.ToInt32(s1["spd"]), Convert.ToInt32(s1["mst"]), Convert.ToInt32(s1["mdf"]));
+            Dictionary<string, object> s2 = characterServer["actualStat"] as Dictionary<string, object>;
+            Stat actualStat = new Stat(Convert.ToInt32(s2["hp"]), Convert.ToInt32(s2["mp"]), Convert.ToInt32(s2["atk"]), Convert.ToInt32(s2["def"]), Convert.ToInt32(s2["spd"]), Convert.ToInt32(s2["mst"]), Convert.ToInt32(s2["mdf"]));
+
+            //procedo a generar las skills
+            List<Skill> skillSet = new List<Skill>();
+            foreach (Dictionary<string, object> skillServer in characterServer["skills"] as List<object>)
+            {
+                //genero el stat de la skill
+                Dictionary<string, object> s3 = skillServer["stats"] as Dictionary<string, object>;
+                Stat statSkill = new Stat(Convert.ToInt32(s3["hp"]), Convert.ToInt32(s3["mp"]), Convert.ToInt32(s3["atk"]), Convert.ToInt32(s3["def"]), Convert.ToInt32(s3["spd"]), Convert.ToInt32(s3["mst"]), Convert.ToInt32(s3["mdf"]));
+                skillSet.Add(new Skill(Convert.ToInt32(skillServer["id"]), Convert.ToString(skillServer["name"]), Convert.ToInt32(skillServer["cost"]), statSkill, 0));
+            }
+
+            //instancio el personaje en pantalla
+            GameObject character = Instantiate(this.characterPrefab[Convert.ToInt32(characterServer["index"])], this.positions[basePosition + count], this.rotations[basePosition + count]);
+
+            //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
+            character.GetComponent<Character>().id = Convert.ToInt32(characterServer["id"]);
+            character.GetComponent<Character>().characterName = Convert.ToString(characterServer["name"]);
+            character.GetComponent<Character>().position = basePosition + count;
+            character.GetComponent<Character>().initialStat = initialStat;
+            character.GetComponent<Character>().actualStat = actualStat;
+            character.GetComponent<Character>().skills = skillSet;
+
+            //agrego el personaje a su grupo
+            characters.Add(character);
+            count++;
+        }
+        if (type == "allied")
+        {
+            this.allied = new Team(characters);
+        }
+        if (type == "enemy")
+        {
+            this.enemy = new Team(characters);
+        }
+    }
+
 
     //funcion que se ejecuta cuando gano por leave
     private void VictoryByLeave(Socket socket, Packet packet, params object[] args)

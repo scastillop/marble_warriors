@@ -17,8 +17,14 @@ public class IntroScene : MonoBehaviour
 
     void Start()
     {
-        //seteo el id del jugador
-        this.playerId = 1;
+        //seteo variables de prueba
+        if (PlayerPrefs.GetString("email", "")=="")
+        {
+            PlayerPrefs.SetString("email", "qwe@qwe.cl");
+            PlayerPrefs.SetString("name", "qwe1");
+        }
+        //seteo direccion del servidor principal
+        PlayerPrefs.SetString("mainServerAdress", "http://fex02.ddns.net:9000/socket.io/");
 
         //informo que me conectare al servidor 
         Loading(true, "Connection failed trying to reconnect...");
@@ -35,7 +41,7 @@ public class IntroScene : MonoBehaviour
         options.ReconnectionDelay = miliSecForReconnect;
 
         //instancio la conexion con el servidor principal
-        this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9000/socket.io/"), options);
+        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("mainServerAdress")), options);
 
         //cuando la conexion con el servidor falla
         this.socketManager.Socket.On("connect_error", ConnectionError);
@@ -74,7 +80,7 @@ public class IntroScene : MonoBehaviour
         //muestro la pantalla de carga
         Loading(true, "Searching opponent...");
         //informo al servidor que estoy buscando oponente
-        socketManager.Socket.Emit("SearchOpponent", this.playerId);
+        socketManager.Socket.Emit("SearchOpponent", PlayerPrefs.GetString("email"));
     }
 
     //funcion que se ejecuta cuando el servidor encuentra un oponente
@@ -146,13 +152,22 @@ public class IntroScene : MonoBehaviour
     //funcion que se ejecuta cuando me conecto con el servidor
     private void Connected(Socket socket, Packet packet, params object[] args)
     {
-        socketManager.Socket.Emit("SuscribeClient", this.playerId);
+        //creo un arreglo relacional para enviar los datos al servidor
+        Dictionary<string, string> data = new Dictionary<string, string>();
+        data.Add("email", PlayerPrefs.GetString("email"));
+        data.Add("name", PlayerPrefs.GetString("name"));
+        //envio los datos al servidor
+        socketManager.Socket.Emit("SuscribeClient", data);
+        //verifico si debo cambiar el panel de carga
         if (this.searchingOpponent)
         {
+            //si actualmente estoy buscando oponente debo poner ese mensaje
             Loading(true, "Searching opponent...");
+            SearchOpponent();
         }
         else
         {
+            //si no, debo eliminar el panel de carga
             Loading(false, "");
         }
     }

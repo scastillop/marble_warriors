@@ -1,39 +1,126 @@
 var mysql = require('mysql');
 
 var con = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "1234567890qwerty",
-  database: "mydb"
+  host: "170.239.84.52",
+  user: "mwDev",
+  password: "qweqwe",
+  database: "mwDev"
 });
 
-var getInformationFromDB = function(sql, dataWhere, callback) {
-	con.connect(function(err) {
-	  if (err) throw err;
-	  con.query(sql, dataWhere, function (err, result, fields) {
-	  	if (err) callback(err,null);
-        else callback(null,result);
-	  });
+//funcion que ejecuta consultas a la base de datos
+var GetInformationFromDB = function(sql, dataWhere, callback) {
+	con.query(sql, dataWhere, function (err, result, fields) {
+		if (err){
+			console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err);
+			callback(null);
+		} else {
+			callback(result);
+		}
 	});
 }
 
-exports.findAllCharacters = function (callback) {
-	getInformationFromDB('SELECT * FROM characters', [], function (err, result) {
-	  if (err) callback(err,null);
-      else callback(null,result);
+//funcion que trae todos los personajes
+exports.FindAllCharacters = function (callback) {
+	GetInformationFromDB('SELECT c.id, c.index, c.name, s.hp, s.mp, s.atk, s.def, s.spd, s.mst, s.mdf FROM characters c JOIN stats s ON c.stats_id  = s.id', [], function (result) {
+    	callback(result);
 	});
 };
 
-exports.findUserByEmail = function (email, callback) {
-  getInformationFromDB('SELECT * FROM users where email = ?', [email], function (err, result) {
-	  if (err) callback(err,null);
-      else callback(null,result);
+//funcion que trae un usuario por su email
+exports.FindUserByEmail = function (email, callback) {
+  	GetInformationFromDB('SELECT * FROM users where email = ?', [email], function (result) {
+    	callback(result);
 	});
 };
 
-exports.findUserByToken = function (token, callback) {
-  getInformationFromDB('SELECT * FROM users where token = ?', [token], function (err, result) {
-	  if (err) callback(err,null);
-      else callback(null,result);
+exports.FindUserByToken = function (token, callback) {
+	GetInformationFromDB('SELECT * FROM users where token = ?', [token], function (result) {
+    	callback(result);
+	});
+};
+
+//funcion que crea un usuario a aprtir de un email
+exports.InsertUser = function (email, name, callback) {
+	GetInformationFromDB('INSERT INTO users (email, name) VALUES (?,?)', [email, name], function (result) {
+    	callback(result);
+	});
+};
+
+//funcion que trae todos los personajes
+exports.FindAllCharacters2 = function (callback) {
+	GetInformationFromDB('SELECT * FROM characters', [], function (result) {
+    	callback(result);
+	});
+};
+
+//funcion que trae todos los personajes
+exports.FindAllCharactersSimple = function (callback) {
+	GetInformationFromDB('SELECT * FROM characters', [], function (result) {
+    	callback(result);
+	});
+};
+
+//funcion que trae todos los stats
+exports.FindAllStats = function (callback) {
+	GetInformationFromDB('SELECT * FROM stats', [], function (result) {
+    	callback(result);
+	});
+};
+
+//funcion que trae todas las skills
+exports.FindAllSkills = function (callback) {
+	GetInformationFromDB('SELECT * FROM skills', [], function (result) {
+    	callback(result);
+	});
+};
+
+exports.FindAllCharactersWithDetails = function (callback) {
+	var masterThis = this;
+	//obtengo los perosnajes
+	masterThis.FindAllCharactersSimple(function(characters){
+		//obtengo todos los stats
+		masterThis.FindAllStats(function(stats){
+			//obtengo todas las skills
+			masterThis.FindAllSkills(function(skills){
+				//recorro las skills para asociarlas con sus stats
+				for (var skillIndex in skills){
+					//recorro los stats
+					for (var statIndex in stats){
+						//si el stat corresponde la skill
+						if(skills[skillIndex].stat_id == stats[statIndex].id){
+							//asigno el stat a la skill
+							skills[skillIndex].stats=stats[statIndex];
+						}
+					}
+				}
+				//recorro los personajes para asociarlos con sus stats y skills
+				for (var characterIndex in characters){
+					//recorro los stats
+					for (var statIndex in stats){
+						//si el stat corresponde al personaje
+						if(characters[characterIndex].stats_id == stats[statIndex].id){
+							//asigno el stat al personaje
+							characters[characterIndex].initialStat=stats[statIndex];
+							characters[characterIndex].actualStat=stats[statIndex];
+						}
+					}
+					//procedo a asociar las skills
+					charSkills =[];
+					//recorro las skills
+					for (var skillIndex in skills){
+						//si la skill corresponde al personaje
+						if(characters[characterIndex].id == skills[skillIndex].characters_id){
+							//agrego la skill
+							charSkills.push(skills[skillIndex])
+						}
+					}
+					//asocio las skills al personaje
+					characters[characterIndex].skills = charSkills;
+				}
+
+				//retorno el resultado
+				callback(characters);
+			});
+		});
 	});
 };

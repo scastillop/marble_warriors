@@ -103,6 +103,9 @@ public class GoogleSignInDemo : MonoBehaviour
             //AddToInformation("Email = " + task.Result.Email);
             //AddToInformation("Google ID Token = " + task.Result.IdToken);
             //SignInWithGoogleOnFirebase(task.Result.IdToken);
+            PlayerPrefs.SetString("email", task.Result.Email);
+            PlayerPrefs.SetString("name", task.Result.DisplayName);
+            PlayerPrefs.SetString("token", task.Result.IdToken);
             SceneManager.LoadScene("Intro");
         }
     }
