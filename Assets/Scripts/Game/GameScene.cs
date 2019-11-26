@@ -567,6 +567,8 @@ public class GameScene : MonoBehaviour
     {
         Loading(false, "");
         Message("Victory! (by leave)", 20, 3f, delegate { });
+        ClickSound soundInstance = new ClickSound();
+        soundInstance.PlaySoundBySource("Audio Source Victory");
     }
 
     //funcion que se ejecuta cuando el servidor me envia las respuestas de las acciones realizadas
@@ -681,6 +683,7 @@ public class GameScene : MonoBehaviour
         bool isOver = false;
         //recorro los personajes aliados
         bool charsDead = true;
+        ClickSound soundInstance = new ClickSound();
         foreach (GameObject character in allied.characters)
         {
             //busco si aun existen personajes vivos
@@ -693,6 +696,7 @@ public class GameScene : MonoBehaviour
         if (charsDead)
         {
             Message("Defeat!", 20, 7f, delegate { Loading(true, ""); });
+            soundInstance.PlaySoundBySource("Audio Source Lose");
             isOver = true;
         }
         //si aun tengo personajes vivos, verifico que los del rival
@@ -712,6 +716,7 @@ public class GameScene : MonoBehaviour
             if (enemiesDead)
             {
                 Message("Victory!", 20, 7f, delegate { Loading(true, ""); });
+                soundInstance.PlaySoundBySource("Audio Source Victory");
                 isOver = true;
             }
         }

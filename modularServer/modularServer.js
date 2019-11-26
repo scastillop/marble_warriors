@@ -4,9 +4,9 @@ var app=express();
 var server=require("http").createServer(app);
 var ioServer=require("socket.io").listen(server);
 var ioClient=require('socket.io-client');
-var serverUrl='http://fex02.ddns.net';
+var serverUrl='http://localhost';//'http://fex02.ddns.net';
 var serverPort=9000;
-var myUrl='http://fex02.ddns.net';
+var myUrl='http://localhost';//'http://fex02.ddns.net';
 var myPort=9010;
 
 //aqui se guardan los datos de los personajes
