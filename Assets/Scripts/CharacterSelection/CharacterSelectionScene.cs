@@ -41,7 +41,7 @@ public class CharacterSelectionScene : MonoBehaviour
         options.ReconnectionDelay = miliSecForReconnect;
 
         //instancio la conexion con el servidor principal
-        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("mainServerAdress")), options);
+        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("mainServerAddress")), options);
 
         //cuando la conexion con el servidor falla
         this.socketManager.Socket.On("connect_error", ConnectionError);
@@ -287,7 +287,7 @@ public class CharacterSelectionScene : MonoBehaviour
     private void SetServer(Socket socket, Packet packet, params object[] args)
     {
         //guardo la direccion del servidor
-        PlayerPrefs.SetString("serverAdress", args[0] as string);
+        PlayerPrefs.SetString("serverAddress", args[0] as string);
         //mando al jugador a la escena de juego
         SceneManager.LoadScene("Game");
     }

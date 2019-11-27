@@ -24,7 +24,7 @@ public class IntroScene : MonoBehaviour
             PlayerPrefs.SetString("name", "qwe1");
         }
         //seteo direccion del servidor principal
-        PlayerPrefs.SetString("mainServerAdress", "http://fex02.ddns.net:9000/socket.io/");
+        PlayerPrefs.SetString("mainServerAddress", "http://fex02.ddns.net:9000/socket.io/");
 
         //informo que me conectare al servidor 
         Loading(true, "Connection failed trying to reconnect...");
@@ -41,7 +41,7 @@ public class IntroScene : MonoBehaviour
         options.ReconnectionDelay = miliSecForReconnect;
 
         //instancio la conexion con el servidor principal
-        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("mainServerAdress")), options);
+        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("mainServerAddress")), options);
 
         //cuando la conexion con el servidor falla
         this.socketManager.Socket.On("connect_error", ConnectionError);
@@ -52,11 +52,14 @@ public class IntroScene : MonoBehaviour
         //cuando se desconecta del servidor
         this.socketManager.Socket.On("disconnect", Disconnected);        
 
-        //inicio la conexion con el servidor
-        this.socketManager.Open();
-
         //cuando el servidor encuentra un oponente
         this.socketManager.Socket.On("OpponentFound", OpponentFound);
+
+        //cuando el servidor me envia la direccion del servidor modular
+        this.socketManager.Socket.On("SetServer", SetServer);
+
+        //inicio la conexion con el servidor
+        this.socketManager.Open();
 
         //seteo la funcion en el boton de busca oponente
         searchOpponent.onClick.AddListener(delegate { SearchOpponent(); });
@@ -170,6 +173,15 @@ public class IntroScene : MonoBehaviour
             //si no, debo eliminar el panel de carga
             Loading(false, "");
         }
+    }
+
+    //funcion que se ejecuta cuando el servidor envia la informacion del servidor modular
+    private void SetServer(Socket socket, Packet packet, params object[] args)
+    {
+        //guardo la direccion del servidor
+        PlayerPrefs.SetString("serverAdress", args[0] as string);
+        //mando al jugador a la escena de juego
+        SceneManager.LoadScene("Game");
     }
 
 }
