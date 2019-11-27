@@ -52,24 +52,24 @@
     <file>Assets/Plugins/Android/com.google.android.gms.play-services-tasks-17.0.0.aar</file>
     <file>Assets/Plugins/Android/com.google.auto.value.auto-value-annotations-1.6.5.jar</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-analytics-17.2.0.aar</file>
-    <file>Assets/Plugins/Android/com.google.firebase.firebase-app-unity-6.6.0.aar</file>
+    <file>Assets/Plugins/Android/com.google.firebase.firebase-app-unity-6.6.0</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-auth-19.0.0.aar</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-auth-interop-18.0.0.aar</file>
-    <file>Assets/Plugins/Android/com.google.firebase.firebase-auth-unity-6.6.0.aar</file>
-    <file>Assets/Plugins/Android/com.google.firebase.firebase-common-19.1.0.aar</file>
+    <file>Assets/Plugins/Android/com.google.firebase.firebase-auth-unity-6.6.0</file>
+    <file>Assets/Plugins/Android/com.google.firebase.firebase-common-19.1.0</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-iid-19.0.0.aar</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-iid-interop-17.0.0.aar</file>
     <file>Assets/Plugins/Android/com.google.firebase.firebase-measurement-connector-18.0.0.aar</file>
-    <file>Assets/Plugins/Android/com.google.signin.google-signin-support-1.0.4.aar</file>
+    <file>Assets/Plugins/Android/com.google.signin.google-signin-support-1.0.4</file>
   </files>
   <settings>
     <setting name="androidAbis" value="armeabi-v7a,x86" />
     <setting name="bundleId" value="com.Company.MarbleWarriors" />
     <setting name="explodeAars" value="True" />
-    <setting name="gradleBuildEnabled" value="True" />
+    <setting name="gradleBuildEnabled" value="False" />
     <setting name="gradleTemplateEnabled" value="False" />
     <setting name="installAndroidPackages" value="True" />
-    <setting name="packageDir" value="Assets\Plugins\Android" />
+    <setting name="packageDir" value="Assets/Plugins/Android" />
     <setting name="patchAndroidManifest" value="True" />
     <setting name="patchMainTemplateGradle" value="True" />
     <setting name="projectExportEnabled" value="False" />

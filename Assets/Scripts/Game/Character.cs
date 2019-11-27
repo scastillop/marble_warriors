@@ -44,6 +44,7 @@ public class Character : MonoBehaviour
         this.hpSlider = Instantiate(sliderPrefab);
         //le añado al canvas (UI)
         this.hpSlider.GetComponent<Slider>().transform.SetParent(canvasTransform, false);
+        this.hpSlider.GetComponent<RectTransform>().transform.SetAsFirstSibling();
         //seteo el valor de la barra de vida
         UpdateBars();
     }
