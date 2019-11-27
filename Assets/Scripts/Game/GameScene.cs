@@ -9,6 +9,7 @@ using UnityEngine.Scripting;
 using UnityEngine.Events;
 using System.Reflection;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 public class GameScene : MonoBehaviour
 
@@ -83,6 +84,9 @@ public class GameScene : MonoBehaviour
         //seteo la funcion del boton que termina el turno
         GameObject.Find("End Turn").GetComponent<Button>().onClick.AddListener(delegate { EndTurn(); });
 
+        //seteo la funcion del boton para rendirse
+        GameObject.Find("Surrender").GetComponent<Button>().onClick.AddListener(delegate { Surrender(); });
+
         //instancio la conexion con el servidor
         //desabilito los logs (ya que yo los voy a realizar solo si los requiero)
         HTTPManager.Logger.Level = BestHTTP.Logger.Loglevels.None;
@@ -96,7 +100,7 @@ public class GameScene : MonoBehaviour
         options.ReconnectionDelay = miliSecForReconnect;
         
         //instancio la conexion con el servidor modular
-        this.socketManager = new SocketManager(new Uri("http://fex02.ddns.net:9010/socket.io/"), options);
+        this.socketManager = new SocketManager(new Uri(PlayerPrefs.GetString("serverAddress")+"/socket.io/"), options);
         
         //seteo los eventos de error y desconexion
         this.socketManager.Socket.On(SocketIOEventTypes.Error, socketError);
@@ -105,8 +109,10 @@ public class GameScene : MonoBehaviour
         //seteo los eventos que utilizare
         //cuando el servidor me indica que la partida ha empezado
         this.socketManager.Socket.On("GameBegin", GameBegin);
-        //cuando el servidor me indica que gané por leave
-        this.socketManager.Socket.On("VictoryByLeave", VictoryByLeave);
+        //cuando el servidor me indica que gané
+        this.socketManager.Socket.On("Victory", Victory);
+        //cuando el servidor me indica que perdí
+        this.socketManager.Socket.On("Defeat", Defeat);
         //cuando el servidor responde a las acciones que le envié
         this.socketManager.Socket.On("ActionsResponse", ActionsResponse);
 
@@ -314,9 +320,10 @@ public class GameScene : MonoBehaviour
                     Debug.DrawRay(ray.origin, ray.direction * 50, Color.red, 50000000f);
                     if (Physics.Raycast(ray, out hit))
                     {
+                        
                         GameObject character = hit.collider.gameObject;
                         //si el raycast golpea un personaje
-                        if (character.name.Equals("Character(Clone)"))
+                        if (character.GetComponent<Character>())
                         {
                             //solidifico el personaje
                             foreach (Renderer renderer in character.GetComponentsInChildren<Renderer>())
@@ -409,6 +416,15 @@ public class GameScene : MonoBehaviour
         Message("Turn End!", 20, 1f, delegate { SendActions(); });
     }
 
+    //funcion que termina el turno
+    private void Surrender()
+    {
+        //seteo pantalla de carga
+        Loading(true, "Sending surrender to the server...");
+        //envio la rendicion al servidor
+        this.socketManager.Socket.Emit("Surrender", PlayerPrefs.GetString("email"));
+    }
+
     //funcion que envia las acciones al servidor
     private void SendActions()
     {
@@ -499,9 +515,9 @@ public class GameScene : MonoBehaviour
 
             //dejo los botones de personajes activos;
             button.GetComponent<ButtonChar>().isActive = true;
-
             j++;
         }
+
         //actualizo la UI de estado de los peronajes
         UpdateCharacterMenu();
 
@@ -528,12 +544,15 @@ public class GameScene : MonoBehaviour
 
             //procedo a generar las skills
             List<Skill> skillSet = new List<Skill>();
+            //genero el indice de la posicion de la skill
+            int position = 0;
             foreach (Dictionary<string, object> skillServer in characterServer["skills"] as List<object>)
             {
                 //genero el stat de la skill
                 Dictionary<string, object> s3 = skillServer["stats"] as Dictionary<string, object>;
                 Stat statSkill = new Stat(Convert.ToInt32(s3["hp"]), Convert.ToInt32(s3["mp"]), Convert.ToInt32(s3["atk"]), Convert.ToInt32(s3["def"]), Convert.ToInt32(s3["spd"]), Convert.ToInt32(s3["mst"]), Convert.ToInt32(s3["mdf"]));
-                skillSet.Add(new Skill(Convert.ToInt32(skillServer["id"]), Convert.ToString(skillServer["name"]), Convert.ToInt32(skillServer["cost"]), statSkill, 0));
+                skillSet.Add(new Skill(Convert.ToInt32(skillServer["id"]), Convert.ToString(skillServer["name"]), Convert.ToInt32(skillServer["cost"]), statSkill, position));
+                position++;
             }
 
             //instancio el personaje en pantalla
@@ -562,13 +581,52 @@ public class GameScene : MonoBehaviour
     }
 
 
-    //funcion que se ejecuta cuando gano por leave
-    private void VictoryByLeave(Socket socket, Packet packet, params object[] args)
+    //funcion que se ejecuta cuando gano
+    private void Victory(Socket socket, Packet packet, params object[] args)
     {
+        //guardo la causa de la victoria
+        string reason = args[0] as string;
+        //quito el panel de carga
         Loading(false, "");
-        Message("Victory! (by leave)", 20, 3f, delegate { });
         ClickSound soundInstance = new ClickSound();
         soundInstance.PlaySoundBySource("Audio Source Victory");
+
+        //informo al jugador y lo mando a la pantalla de inicio
+        if (reason != "")
+        {
+            //si existe alguna razon por la que ganó (rendicion o salirse del juego)
+            Message("Victory! "+reason, 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+        }
+        else
+        {
+            //si no solo envìo el mensaje
+            Message("Victory!", 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+        }
+        
+    }
+
+    //funcion que se ejecuta cuando pierdo
+    private void Defeat(Socket socket, Packet packet, params object[] args)
+    {
+        //guardo la causa de la derrota
+        string reason = args[0] as string;
+        //quito el panel de carga
+        Loading(false, "");
+        
+        ClickSound soundInstance = new ClickSound();
+        soundInstance.PlaySoundBySource("Audio Source Lose");
+
+        //informo al jugador y lo mando a la pantalla de inicio
+        if (reason != "")
+        {
+            //si existe alguna razon por la que perdio (rendicion o salirse del juego)
+            Message("Defeat! " + reason, 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+        }
+        else
+        {
+            //si no solo envìo el mensaje
+            Message("Defeat!", 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+        }
     }
 
     //funcion que se ejecuta cuando el servidor me envia las respuestas de las acciones realizadas
@@ -630,7 +688,7 @@ public class GameScene : MonoBehaviour
         foreach (object actionData in this.performingActions)
         {
             //si la accion que estoy realizando existe
-            if(count == this.performingAction)
+            if (count == this.performingAction)
             {
                 Dictionary<string, object> action = actionData as Dictionary<string, object>;
                 //identifico al owner
@@ -662,6 +720,11 @@ public class GameScene : MonoBehaviour
                     //defino la posicion donde quiero llegar
                     targetPosition = new Vector3(affected.transform.position.x + 6f, affected.transform.position.y, affected.transform.position.z);
                 }
+                //si no es necesario moverme
+                if (Convert.ToString(action["distance"]).Equals("range")){
+                    //la posicion de destino es igual a la de origen
+                    targetPosition = owner.transform.position;
+                }
                 //obtengo el estado del afectado una vez realizada la accion
                 Dictionary<string, object> affectedStatMap = action["affectedStat"] as Dictionary<string, object>;
                 Stat affectedStat = new Stat(Convert.ToInt32(affectedStatMap["hp"]), Convert.ToInt32(affectedStatMap["mp"]), Convert.ToInt32(affectedStatMap["atk"]), Convert.ToInt32(affectedStatMap["def"]), Convert.ToInt32(affectedStatMap["spd"]), Convert.ToInt32(affectedStatMap["mst"]), Convert.ToInt32(affectedStatMap["mdf"]));
@@ -669,7 +732,7 @@ public class GameScene : MonoBehaviour
                 Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
                 Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
                 //realizo la accion
-                owner.GetComponent<Character>().PerformAction(Convert.ToInt32(action["skillId"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().SetStat(affectedStat); owner.GetComponent<Character>().SetStat(ownerStat); UpdateCharacterMenu(); this.gameOver = IsGameOver(); }, delegate {if (!this.gameOver){ PerformAction(); }; });
+                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().SetStat(affectedStat); owner.GetComponent<Character>().SetStat(ownerStat); UpdateCharacterMenu(); this.gameOver = IsGameOver(); }, delegate {if (!this.gameOver){ PerformAction(); }; });
             }
             count++;
         }

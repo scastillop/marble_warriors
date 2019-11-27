@@ -1,11 +1,34 @@
 var mysql = require('mysql');
 
-var con = mysql.createConnection({
-  host: "170.239.84.52",
-  user: "mwDev",
-  password: "qweqwe",
-  database: "mwDev"
-});
+var con;
+
+function connect(){
+	con = mysql.createConnection({
+	  host: "170.239.84.52",
+	  user: "mwDev",
+	  password: "qweqwe",
+	  database: "mwDev"
+	});
+
+	con.connect(function(err) { 
+		if(err) { 
+			console.log(new Date(Date.now()).toLocaleString()+'Error when connecting to db:', err);
+			setTimeout(connect, 2000);
+		}                                    
+	});                                    
+		                              
+	con.on('error', function(err) {
+		console.log('db error', err);
+		if(err.code === 'PROTOCOL_CONNECTION_LOST') { 
+			connect();
+		} else {
+			console.log(new Date(Date.now()).toLocaleString()+'Error when connecting to db:', err);
+			setTimeout(connect, 2000);
+		}
+	});
+}
+
+connect();
 
 //funcion que ejecuta consultas a la base de datos
 var GetInformationFromDB = function(sql, dataWhere, callback) {
@@ -101,7 +124,7 @@ exports.FindAllCharactersWithDetails = function (callback) {
 						if(characters[characterIndex].stats_id == stats[statIndex].id){
 							//asigno el stat al personaje
 							characters[characterIndex].initialStat=stats[statIndex];
-							characters[characterIndex].actualStat=stats[statIndex];
+							characters[characterIndex].actualStat=Object.assign({} , stats[statIndex]);
 						}
 					}
 					//procedo a asociar las skills

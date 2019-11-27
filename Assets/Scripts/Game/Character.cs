@@ -19,10 +19,11 @@ public class Character : MonoBehaviour
     private Vector3 initialPosition;
     private Vector3 targetPosition;
     private Vector3 affectedPosition;
-    int actionPerforming;
+    private string actionPerforming;
     private string actionStatus;
     private UnityAction executeChanges;
     private UnityAction nextAction;
+    private float walkSpeed;
 
     private void Start()
     {
@@ -32,6 +33,8 @@ public class Character : MonoBehaviour
         this.initialPosition = transform.position;
         //seteo el id de posicion (1 al 10)
         this.targetPosition = transform.position;
+        //seteo la velocidad al caminar
+        this.walkSpeed = 4f;
         //seteo mi animator (para ejecutar animaciones posteriormente)
         this.animator = GetComponent<Animator>();
         //obtengo la posicion del cavas (UI)
@@ -74,10 +77,10 @@ public class Character : MonoBehaviour
             //si el personaje esta despertando
             case "awaking":
                 //si el personaje ya termino de animarse paso al siguiente estado (caminar)
-                if (!AnimatorIsPlaying("awaking"))
+                if (!AnimatorIsPlaying("Awake"))
                 {
                     //activo la animacion de caminar
-                    this.animator.Play("walk_sword");
+                    this.animator.Play("Walk");
                     //cambio el estado
                     this.actionStatus = "going";
                 }
@@ -92,7 +95,7 @@ public class Character : MonoBehaviour
                     //giro al personaje hacia su objetivo
                     this.transform.LookAt(this.targetPosition);
                     //muevo al personaje
-                    this.transform.position = Vector3.MoveTowards(this.transform.position, this.targetPosition, Time.deltaTime * 6f);
+                    this.transform.position = Vector3.MoveTowards(this.transform.position, this.targetPosition, Time.deltaTime * this.walkSpeed);
                     //giro paulatino
                     /*
                     //determino que empiece a rotar cuando quede cierta distancia
@@ -109,11 +112,8 @@ public class Character : MonoBehaviour
                 else
                 {
                     //ejecuto la animacion de la accion
-                    if (actionPerforming == 1)
-                    {
-                        //si es el ataque basico (id=1)
-                        this.animator.Play("sword_attack_2");
-                    }
+                    this.animator.Play(this.actionPerforming);
+
                     //cambio el estado de la accion a "actuando"
                     this.actionStatus = "acting";
                     //giro al personaje hacia su enemigo
@@ -126,7 +126,7 @@ public class Character : MonoBehaviour
                 if (!AnimatorIsPlaying())
                 {
                     //activo la animacion de caminar
-                    this.animator.Play("walk_sword");
+                    this.animator.Play("Walk");
                     //cambio el estado de la accion para que el personaje regrese a su posicion inicial
                     this.actionStatus = "backing";
                 }
@@ -141,13 +141,13 @@ public class Character : MonoBehaviour
                     //giro al personaje hacia su objetivo
                     transform.LookAt(this.initialPosition);
                     //muevo al personaje
-                    transform.position = Vector3.MoveTowards(transform.position, this.initialPosition, Time.deltaTime * 6f);
+                    transform.position = Vector3.MoveTowards(transform.position, this.initialPosition, Time.deltaTime * this.walkSpeed);
                 }
                 //si ya llego a su posicion inicial
                 else
                 {
                     //detengo la animacion
-                    this.animator.Play("sleep");
+                    this.animator.Play("Sleep");
                     //cambio el estado de la accion a "durmiendo"
                     this.actionStatus = "stand";
                     //giro al personaje hacia su orientacion original
@@ -166,20 +166,20 @@ public class Character : MonoBehaviour
         }
     }
 
-    public void PerformAction(int actionId, Vector3 affectedPosition, Vector3 targetPosition, UnityAction executeChanges, UnityAction nextAction)
+    public void PerformAction(string actionName, Vector3 affectedPosition, Vector3 targetPosition, UnityAction executeChanges, UnityAction nextAction)
     {
         //primero debo mover al personaje a la posicion del enemigo
         this.targetPosition = targetPosition;
         //le indico cual es su nuevo objetivo
         this.affectedPosition = affectedPosition;
         //le indico cual es la habilidad que debe ejecutar
-        this.actionPerforming = actionId;
+        this.actionPerforming = actionName;
         //le indico los cambios a realizar (en el afectado)
         this.executeChanges = executeChanges;
         //le indico cual es la siguiente acciona  realizar
         this.nextAction = nextAction;
         //comienzo la animacion de despertarse
-        this.animator.Play("awaking");
+        this.animator.Play("Awake");
         //le indico que se esta realizando una accion
         this.actionStatus = "awaking";
     }
@@ -211,7 +211,7 @@ public class Character : MonoBehaviour
         //si el personaje murio, ejecuta su animacion
         if (this.actualStat.hp == 0)
         {            
-            this.animator.Play("sword_death");
+            this.animator.Play("Death");
             this.actionStatus = "dying";
             //y oculto su barra de vida
             this.hpSlider.GetComponent<CanvasGroup>().alpha = 0;

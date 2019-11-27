@@ -56,6 +56,7 @@ mysqlConnection.FindAllCharactersWithDetails(function (result) {
 		//cuando el servidor principal me envia un juego
 		socketClient.on('SendGame', (data) => {
 			games.push(data);
+			reportGamesCount();
 		});
 
 		//inicio el servidor
@@ -67,6 +68,7 @@ mysqlConnection.FindAllCharactersWithDetails(function (result) {
 
 //para efectos de prueba creo una partida (en el futuro esta debera ser creada por el servidor pincipal)
 //creo los personajes de cada jugador
+/*
 var charactersP1 = [];
 var charactersP2 = [];
 for (var i = 0; i < 5; i++){
@@ -102,7 +104,7 @@ var game = {
 var gamesIndex = 1;
 games[gamesIndex]=game;
 gamesIndex++;
-
+*/
 
 //cuando un cliente se conecta
 ioServer.on("connection",function(socket){
@@ -113,13 +115,13 @@ ioServer.on("connection",function(socket){
 		console.log(new Date(Date.now()).toLocaleString()+" Client ("+email+") connected from "+socket.request.connection.remoteAddress);
 		//busco si existe algun juego que esté esperando este jugador
 		for(var key in games){
-			//busco juegos que aun no han comenzado
-			if(games[key].turn==0){
-				//busco juegos en los que esté este jugador
-				for(var playerKey in games[key].players){
-					//si lo encuentro
-					if(games[key].players[playerKey].email==email){
-						//agrego su socket en el juego y cambio el estado del jugador
+			//busco juegos en los que esté este jugador
+			for(var playerKey in games[key].players){
+				//si lo encuentro 
+				if(games[key].players[playerKey].email==email){
+					//verifico si estaba conectado antes
+					if(games[key].players[playerKey].status=="waitingForConnection"){
+						//si el jugador no estaba agrego su socket en el juego y cambio el estado del jugador
 						games[key].players[playerKey].socket = socket;
 						games[key].players[playerKey].status = "connected";
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
@@ -134,27 +136,51 @@ ioServer.on("connection",function(socket){
 							//recorro los personajes que tiene seleccionado el jugador
 							for(var characterIndex in games[key].players[playerKey].charactersIndex){
 								if(characters[characterKey].index==games[key].players[playerKey].charactersIndex[characterIndex]){
-									games[key].players[playerKey].characters.push(characters[characterKey]);
+									games[key].players[playerKey].characters.push(JSON.parse(JSON.stringify(characters[characterKey])));
 								}
 							}
 						}
-					}
-				}
-				//verifico si ya ambos jugadores estan conectados
-				var playersConnected = 0;
-				for(var playerKey in games[key].players){
-					if(games[key].players[playerKey].status=="connected"){
-						playersConnected ++;
-					}
-				}
+						//verifico si ya ambos jugadores estan conectados
+						var playersConnected = 0;
+						for(var playerKey2 in games[key].players){
+							if(games[key].players[playerKey2].status=="connected"){
+								playersConnected ++;
+							}
+						}
 
-				if(playersConnected==2){
-					//si lo esta inicio el primer turno
-					games[key].turn==1;
-					//informo a los jugadores de que el juego ha empezado y actualizo el estado de los jugadores
-					for(var playerKey in games[key].players){
-						//cambio el estado del jugador
-						games[key].players[playerKey].status="selectingActions";
+						if(playersConnected==2){
+							//si lo esta inicio el primer turno
+							games[key].turn==1;
+							//informo a los jugadores de que el juego ha empezado y actualizo el estado de los jugadores
+							for(var playerKey in games[key].players){
+								//cambio el estado del jugador
+								games[key].players[playerKey].status="selectingActions";
+								//busco al enemigo
+								for(var playerEnemyKey in games[key].players){
+									//si el indice no es el mismo quiere decir que es el rival
+									if(playerEnemyKey!=playerKey){
+										//genero una variable donde estara la respuesta
+										var allCharacters = [];
+										//obtengo los personajes aliados
+										allCharacters.push(games[key].players[playerKey].characters);
+										//obtengo los personajes del enemigo
+										allCharacters.push(games[key].players[playerEnemyKey].characters);
+										//envio la respuesta al jugador
+										games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
+									}
+								}
+							}
+						}
+					}else{
+						//si el jugador ya estaba elimino el socket antiguo
+						players.splice(games[key].players[playerKey].socket, 1);
+						//guardo su nuevo socket
+						games[key].players[playerKey].socket = socket;
+						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
+						players[socket.id] = [];
+						players[socket.id].gameIndex = key;
+						players[socket.id].playerIndex = playerKey;
+
 						//busco al enemigo
 						for(var playerEnemyKey in games[key].players){
 							//si el indice no es el mismo quiere decir que es el rival
@@ -166,6 +192,7 @@ ioServer.on("connection",function(socket){
 								//obtengo los personajes del enemigo
 								allCharacters.push(games[key].players[playerEnemyKey].characters);
 								//envio la respuesta al jugador
+								console.log(games[key].players[playerEnemyKey].characters);
 								games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
 							}
 						}
@@ -225,8 +252,10 @@ ioServer.on("connection",function(socket){
 					var action = games[gameIndex].players[playerOnTurn].actions[i];
 					//reduzco el mana del que realizo la accion
 					games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp=games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp-games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].cost;
-					//guardo el id de la habilidad
-					action.skillId = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].id;
+					//guardo los datos de la habilidad (para ser usados en el cliente)
+					action.name = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].name;
+					action.animation = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].animation;
+					action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
 					//si el afectado es del equipo enemigo
 					if(action.affected>=5){
 						//verifico si cumple con los requisitos
@@ -302,6 +331,28 @@ ioServer.on("connection",function(socket){
 	});
 
 	//si un cliente se desconecta
+	socket.on('Surrender',function(){
+		//compruebo que el jugador este en mi lista de jugadores
+		if(players[socket.id]){
+			//informo al servidor principal que el juego ha terminado
+			socketClient.emit('EndGame', games[players[socket.id].gameIndex].id);
+			//informo a los jugadores quien perdio y quien gano
+			for(var playerKey in games[players[socket.id].gameIndex].players){
+				if(games[players[socket.id].gameIndex].players[playerKey].socket.id!=socket.id){
+					games[players[socket.id].gameIndex].players[playerKey].socket.emit("Victory", "(by surrender)");
+				}else{
+					games[players[socket.id].gameIndex].players[playerKey].socket.emit("Defeat", "(by surrender)");
+				}
+			}
+			//elimino el juego de mi lista
+			games.splice(players[socket.id].gameIndex, 1);
+			//informo la cantidad de juegos que administro
+			reportGamesCount();
+		}
+	});
+
+	//si un cliente se desconecta
+	/*
 	socket.on('disconnect',function(){
 		console.log(new Date(Date.now()).toLocaleString()+" Client disconnected from "+socket.request.connection.remoteAddress+", with id:"+socket.id);
 		//compruebo que el jugador este en mi lista de jugadores
@@ -317,6 +368,7 @@ ioServer.on("connection",function(socket){
 			}
 		}
 	});
+	*/
 })
 
 
@@ -438,4 +490,9 @@ function CanDo(owner, skill, affected){
 	}else{
 		return false;
 	}
+}
+
+//funcion que informa al servidor principal cuantas partidas estoy trabajando
+function reportGamesCount(){
+	socketClient.emit('reportGamesCount', games.length);	
 }
