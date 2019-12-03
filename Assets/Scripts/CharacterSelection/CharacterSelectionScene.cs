@@ -288,6 +288,8 @@ public class CharacterSelectionScene : MonoBehaviour
     {
         //guardo la direccion del servidor
         PlayerPrefs.SetString("serverAddress", args[0] as string);
+        //cierro el socket
+        this.socketManager.Close();
         //mando al jugador a la escena de juego
         SceneManager.LoadScene("Game");
     }

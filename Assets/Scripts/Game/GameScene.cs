@@ -94,7 +94,6 @@ public class GameScene : MonoBehaviour
         //seteo las configuraciones de reconexion
         TimeSpan miliSecForReconnect = TimeSpan.FromMilliseconds(1000);
         SocketOptions options = new SocketOptions();
-        options.ReconnectionAttempts = 3;
         options.AutoConnect = true;
         options.Reconnection = true;
         options.ReconnectionDelay = miliSecForReconnect;
@@ -113,15 +112,22 @@ public class GameScene : MonoBehaviour
         this.socketManager.Socket.On("Victory", Victory);
         //cuando el servidor me indica que perdí
         this.socketManager.Socket.On("Defeat", Defeat);
+        //cuando el servidor me manda al intro
+        this.socketManager.Socket.On("BackToIntro", BackToIntro);
         //cuando el servidor responde a las acciones que le envié
         this.socketManager.Socket.On("ActionsResponse", ActionsResponse);
+        //cuando la conexion con el servidor falla
+        this.socketManager.Socket.On("connect_error", ConnectionError);
+        //cuando me conecto correctamente al servidor
+        this.socketManager.Socket.On("connect", Connected);
+        //cuando se desconecta del servidor
+        this.socketManager.Socket.On("disconnect", Disconnected);
+        //cambio el mensaje del panel de carga
+        Loading(true, "Waiting for the opponent...");
 
         this.socketManager.Open();
 
-        //informo que estoy listo para comenzar la partida identificandome
-        socketManager.Socket.Emit("ReadyToBegin", PlayerPrefs.GetString("email"));
-        //cambio el mensaje del panel de carga
-        Loading(true, "Waiting for the opponent...");
+        
 
     }
 
@@ -145,7 +151,7 @@ public class GameScene : MonoBehaviour
         //genero las habilidades del personaje
         Stat statSkill = new Stat(-40, 0, 0, 0, 0, 0, 0);
         List<Skill> skillSet = new List<Skill>();
-        skillSet.Add(new Skill(1,"Basic Attack", 10, statSkill, 0));
+        skillSet.Add(new Skill(1,"Basic Attack", 10, statSkill, 0, "","","",""));
 
         //genero las estadisticas del personaje
         Stat statChar = new Stat(100, 100, 30, 20, 30, 30, 20);
@@ -245,8 +251,6 @@ public class GameScene : MonoBehaviour
     //funcion que se ejecuta al presionar una habilidad en el menu de acciones
     private void SkillClick(Button button)
     {
-        //seteo en true la fase de seleccion de objetivos
-        this.selectingTarget = true;
         //seteo la ultima accion seleccionada
         this.lastButtonActPressed = button.GetComponent<ButtonAct>();
         //opaco los personajes (para que despues se puedan seleccionar)
@@ -271,6 +275,57 @@ public class GameScene : MonoBehaviour
         {
             charButton.GetComponent<CanvasGroup>().interactable = false;
         }
+
+        //si la habilidad no permite seleccionar al afectado
+        if (lastButtonActPressed.skill.target.Equals("own")||lastButtonActPressed.skill.target.Equals("ownTeam"))
+        {
+            //si es el propio usuario de la habilidad
+            if (lastButtonActPressed.skill.target.Equals("own")){
+                //solidifico el personaje
+                foreach (Renderer renderer in lastButtonActPressed.character.GetComponentsInChildren<Renderer>())
+                {
+                    renderer.material.shader = Shader.Find("Standard (Specular setup)");
+                }
+            //si es el equipo del usuario de la habilidad
+            }else if (lastButtonActPressed.skill.target.Equals("ownTeam"))
+            {
+                //procedo a solidificar el equipo
+                foreach (GameObject teamCharacter in this.allied.characters)
+                {
+                    //solidifico el personaje
+                    foreach (Renderer renderer in teamCharacter.GetComponentsInChildren<Renderer>())
+                    {
+                        renderer.material.shader = Shader.Find("Standard (Specular setup)");
+                    }
+                }
+            }
+
+            //desactivo el boton del personaje
+            lastButtonActPressed.buttonChar.GetComponent<ButtonChar>().isActive = false;
+
+            //desbloqueo el menu de personajes
+            foreach (Button charButton in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+            {
+                if (charButton.GetComponent<ButtonChar>().isActive)
+                {
+                    charButton.GetComponent<CanvasGroup>().interactable = true;
+                }
+            }
+
+            //guardo la accion en el arreglo de acciones
+            actions.Add(new Action(lastButtonActPressed.character, lastButtonActPressed.character, lastButtonActPressed.skill));
+
+            //solidifico los personajes dentro de unos segundos
+            StartCoroutine(WaitforSolidificateCharacters(0.7f));
+        }
+        //si no lo es
+        else
+        {
+            //seteo en true la fase de seleccion de objetivos
+            this.selectingTarget = true;
+        }
+
+        
     }
 
     //funcion que se ejecuta en cada frame del juego
@@ -284,7 +339,7 @@ public class GameScene : MonoBehaviour
         //maneja eventos de touch en la pantalla
         foreach (Touch touch in Input.touches)
         {
-            HandleTouch(touch.fingerId, mainCamera.ScreenToWorldPoint(touch.position), touch.phase);
+            HandleTouch(touch.fingerId, touch.position, touch.phase);
         }
 
         // simula eventos de touch al clickear
@@ -317,7 +372,7 @@ public class GameScene : MonoBehaviour
                 {
                     RaycastHit hit;
                     Ray ray = mainCamera.ScreenPointToRay(touchPosition);
-                    Debug.DrawRay(ray.origin, ray.direction * 50, Color.red, 50000000f);
+                    //Debug.DrawRay(ray.origin, ray.direction * 50, Color.red, 50000000f);
                     if (Physics.Raycast(ray, out hit))
                     {
                         
@@ -325,10 +380,64 @@ public class GameScene : MonoBehaviour
                         //si el raycast golpea un personaje
                         if (character.GetComponent<Character>() && character.GetComponent<Character>().actualStat.hp > 0)
                         {
-                            //solidifico el personaje
-                            foreach (Renderer renderer in character.GetComponentsInChildren<Renderer>())
+                            //si la habilidad tiene un unico objetivo
+                            if (lastButtonActPressed.skill.target.Equals("single"))
                             {
-                                renderer.material.shader = Shader.Find("Standard");
+                                //solidifico el personaje
+                                foreach (Renderer renderer in character.GetComponentsInChildren<Renderer>())
+                                {
+                                    renderer.material.shader = Shader.Find("Standard (Specular setup)");
+                                }
+                            }
+                            //si la habilidad tiene como objetivo un equipo
+                            else if(lastButtonActPressed.skill.target.Equals("team"))
+                            {
+                                List<GameObject> teamCharacters;
+                                //si es menor que 5 es el equipo aliado
+                                if (character.GetComponent<Character>().position < 5)
+                                {
+                                    teamCharacters = this.allied.characters;
+                                }
+                                //si no es el equipo enemigo
+                                else
+                                {
+                                    teamCharacters = this.enemy.characters;
+                                }
+                                //procedo a solidificar el equipo
+                                foreach (GameObject teamCharacter in teamCharacters)
+                                {
+                                    //solidifico el personaje
+                                    foreach (Renderer renderer in teamCharacter.GetComponentsInChildren<Renderer>())
+                                    {
+                                        renderer.material.shader = Shader.Find("Standard (Specular setup)");
+                                    }
+                                }
+                            //si la habilidad tiene como objetivo 3 personajes
+                            }else if (lastButtonActPressed.skill.target.Equals("multi3"))
+                            {
+                                List<GameObject> teamCharacters;
+                                //si es menor que 5 es del equipo aliado
+                                if (character.GetComponent<Character>().position < 5)
+                                {
+                                    teamCharacters = this.allied.characters;
+                                }
+                                //si no es del equipo enemigo
+                                else
+                                {
+                                    teamCharacters = this.enemy.characters;
+                                }
+                                //solidifico los personajes que corresponden
+                                foreach (GameObject teamCharacter in teamCharacters)
+                                {
+                                    if (teamCharacter.GetComponent<Character>().position == character.GetComponent<Character>().position - 1 || teamCharacter.GetComponent<Character>().position == character.GetComponent<Character>().position + 1 || teamCharacter.GetComponent<Character>().position == character.GetComponent<Character>().position)
+                                    {
+                                        //solidifico el personaje
+                                        foreach (Renderer renderer in teamCharacter.GetComponentsInChildren<Renderer>())
+                                        {
+                                            renderer.material.shader = Shader.Find("Standard (Specular setup)");
+                                        }
+                                    }
+                                }
                             }
                             
                             //termino la fase de seleccion de objetivo
@@ -377,12 +486,12 @@ public class GameScene : MonoBehaviour
             //aliados
             foreach (Renderer renderer in this.allied.get(i).GetComponentsInChildren<Renderer>())
             {
-                renderer.material.shader = Shader.Find("Standard");
+                renderer.material.shader = Shader.Find("Standard (Specular setup)");
             }
             //enemigos
             foreach (Renderer renderer in this.enemy.get(i).GetComponentsInChildren<Renderer>())
             {
-                renderer.material.shader = Shader.Find("Standard");
+                renderer.material.shader = Shader.Find("Standard (Specular setup)");
             }
         }
     }
@@ -555,13 +664,12 @@ public class GameScene : MonoBehaviour
                 //genero el stat de la skill
                 Dictionary<string, object> s3 = skillServer["stats"] as Dictionary<string, object>;
                 Stat statSkill = new Stat(Convert.ToInt32(s3["hp"]), Convert.ToInt32(s3["mp"]), Convert.ToInt32(s3["atk"]), Convert.ToInt32(s3["def"]), Convert.ToInt32(s3["spd"]), Convert.ToInt32(s3["mst"]), Convert.ToInt32(s3["mdf"]));
-                skillSet.Add(new Skill(Convert.ToInt32(skillServer["id"]), Convert.ToString(skillServer["name"]), Convert.ToInt32(skillServer["cost"]), statSkill, position));
+                skillSet.Add(new Skill(Convert.ToInt32(skillServer["id"]), Convert.ToString(skillServer["name"]), Convert.ToInt32(skillServer["cost"]), statSkill, position, Convert.ToString(skillServer["distance"]), Convert.ToString(skillServer["type"]), Convert.ToString(skillServer["animation"]), Convert.ToString(skillServer["target"])));
                 position++;
             }
 
             //instancio el personaje en pantalla
             GameObject character = Instantiate(this.characterPrefab[Convert.ToInt32(characterServer["index"])], this.positions[basePosition + count], this.rotations[basePosition + count]);
-
             //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
             character.GetComponent<Character>().id = Convert.ToInt32(characterServer["id"]);
             character.GetComponent<Character>().characterName = Convert.ToString(characterServer["name"]);
@@ -592,6 +700,8 @@ public class GameScene : MonoBehaviour
         string reason = args[0] as string;
         //quito el panel de carga
         Loading(false, "");
+
+        //reproduzco la musica
         ClickSound soundInstance = new ClickSound();
         soundInstance.PlaySoundBySource("Audio Source Victory");
 
@@ -599,12 +709,12 @@ public class GameScene : MonoBehaviour
         if (reason != "")
         {
             //si existe alguna razon por la que ganó (rendicion o salirse del juego)
-            Message("Victory! "+reason, 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+            Message("Victory! "+reason, 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         else
         {
             //si no solo envìo el mensaje
-            Message("Victory!", 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+            Message("Victory!", 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         
     }
@@ -624,12 +734,12 @@ public class GameScene : MonoBehaviour
         if (reason != "")
         {
             //si existe alguna razon por la que perdio (rendicion o salirse del juego)
-            Message("Defeat! " + reason, 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+            Message("Defeat! " + reason, 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         else
         {
             //si no solo envìo el mensaje
-            Message("Defeat!", 20, 4f, delegate { SceneManager.LoadScene("Intro"); });
+            Message("Defeat!", 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
     }
 
@@ -684,8 +794,8 @@ public class GameScene : MonoBehaviour
             //regreso el boton end turn estado original
             GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
             GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
-            //informo el inicio de un nuevo turno
-            Message("Turn Start!", 20, 1f, delegate { });
+            //actualizo el estado de los personajes preguntando al servidor
+            socketManager.Socket.Emit("UpdateCharacters", PlayerPrefs.GetString("email"));
         }
         //si aun existen, recorro las acciones que se estan realizando
         int count = 0;
@@ -729,19 +839,54 @@ public class GameScene : MonoBehaviour
                     //la posicion de destino es igual a la de origen
                     targetPosition = owner.transform.position;
                 }
-                //obtengo el estado del afectado una vez realizada la accion
-                Dictionary<string, object> affectedStatMap = action["affectedStat"] as Dictionary<string, object>;
-                Stat affectedStat = new Stat(Convert.ToInt32(affectedStatMap["hp"]), Convert.ToInt32(affectedStatMap["mp"]), Convert.ToInt32(affectedStatMap["atk"]), Convert.ToInt32(affectedStatMap["def"]), Convert.ToInt32(affectedStatMap["spd"]), Convert.ToInt32(affectedStatMap["mst"]), Convert.ToInt32(affectedStatMap["mdf"]));
                 //obtengo el estado del owner una vez realizada la accion
                 Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
                 Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
+                //rescato los onjetivos
+                List<object> targets = new List<object>();
+                List<object> targetsData = action["targets"] as List<object>;
+                foreach (object targetData in targetsData)
+                {
+                    targets.Add(targetData);
+                }
                 //realizo la accion
-                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { affected.GetComponent<Character>().SetStat(affectedStat); owner.GetComponent<Character>().SetStat(ownerStat); UpdateCharacterMenu(); this.gameOver = IsGameOver(); }, delegate {if (!this.gameOver){ PerformAction(); }; });
+                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { updateTargets(targets); owner.GetComponent<Character>().SetStat(ownerStat); UpdateCharacterMenu(); this.gameOver = IsGameOver(); }, delegate {if (!this.gameOver){ PerformAction(); }; });
             }
             count++;
         }
         //cambio la accion que se esta realizando
         this.performingAction++;
+    }
+
+    //funcion que actualiza el estado de grupo de objetivos
+    private void updateTargets(List<object> targets)
+    {
+        //recorro la lista de objetivos
+        foreach (object targetData in targets)
+        {
+            //casteo la data
+            Dictionary<string, object>  target = targetData as Dictionary<string, object>;
+            //identifico al affected
+            GameObject affected;
+            //si el affected es < 5 quiere decir que es un aliado
+            if (Convert.ToInt32(target["affected"]) < 5)
+            {
+                affected = allied.characters[Convert.ToInt32(target["affected"])];
+            }
+            //si no, es un enemigo
+            else
+            {
+                affected = enemy.characters[Convert.ToInt32(target["affected"]) - 5];
+
+            }
+            //obtengo el estado del afectado una vez realizada la accion
+            Dictionary<string, object> affectedStatMap = target["affectedStat"] as Dictionary<string, object>;
+            Stat affectedStat = new Stat(Convert.ToInt32(affectedStatMap["hp"]), Convert.ToInt32(affectedStatMap["mp"]), Convert.ToInt32(affectedStatMap["atk"]), Convert.ToInt32(affectedStatMap["def"]), Convert.ToInt32(affectedStatMap["spd"]), Convert.ToInt32(affectedStatMap["mst"]), Convert.ToInt32(affectedStatMap["mdf"]));
+            //actualizo el estado del personaje
+            affected.GetComponent<Character>().SetStat(affectedStat);
+
+        }
+        
     }
 
     //funcion que verifica si algun jugador gano
@@ -762,7 +907,7 @@ public class GameScene : MonoBehaviour
         //si no existen personajes vivos entonces pierde el jugador
         if (charsDead)
         {
-            Message("Defeat!", 20, 7f, delegate { Loading(true, ""); });
+            Message("Defeat!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
             soundInstance.PlaySoundBySource("Audio Source Lose");
             isOver = true;
         }
@@ -782,11 +927,37 @@ public class GameScene : MonoBehaviour
             //si no existen personajes vivos entonces pierde el rival
             if (enemiesDead)
             {
-                Message("Victory!", 20, 7f, delegate { Loading(true, ""); });
+                Message("Victory!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
                 soundInstance.PlaySoundBySource("Audio Source Victory");
                 isOver = true;
             }
         }
         return isOver;
     }
+
+    //funcion que se ejecuta cuando el servidor me envia al intro
+    private void BackToIntro(Socket socket, Packet packet, params object[] args)
+    {
+        this.socketManager.Close(); SceneManager.LoadScene("Intro");
+    }
+
+    //funcion que se ejecuta cuando falla la conexion con el servidor.
+    private void ConnectionError(Socket socket, Packet packet, params object[] args)
+    {
+        Loading(true, "Connection failed trying again...");
+    }
+
+    //funcion que se ejecuta cuando falla la conexion con el servidor.
+    private void Disconnected(Socket socket, Packet packet, params object[] args)
+    {
+        Loading(true, "Connection lost trying to reconnect..");
+    }
+
+    //funcion que se ejecuta cuando me conecto con el servidor
+    private void Connected(Socket socket, Packet packet, params object[] args)
+    {
+        //informo que estoy listo para comenzar la partida identificandome
+        socketManager.Socket.Emit("ReadyToBegin", PlayerPrefs.GetString("email"));
+    }
+
 }

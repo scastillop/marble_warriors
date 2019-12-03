@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.4399044, g: 0.48836774, b: 0.5685724, a: 1}
+  m_IndirectSpecularColor: {r: 0.43990478, g: 0.48836845, b: 0.56857353, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -251,7 +251,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: Connecting...
+  m_Text: Searching opponent...
 --- !u!222 &49394926
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1708,8 +1708,8 @@ RectTransform:
   m_Children:
   - {fileID: 527748527}
   - {fileID: 1942934398}
-  - {fileID: 837476480}
   - {fileID: 1030585163}
+  - {fileID: 837476480}
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -3748,7 +3748,7 @@ RectTransform:
   - {fileID: 1019197380}
   - {fileID: 49394924}
   m_Father: {fileID: 395769289}
-  m_RootOrder: 2
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -3763,9 +3763,9 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 837476479}
   m_Enabled: 1
-  m_Alpha: 0
-  m_Interactable: 0
-  m_BlocksRaycasts: 0
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!114 &837476482
 MonoBehaviour:
@@ -4108,7 +4108,7 @@ RectTransform:
   m_Children:
   - {fileID: 1932517407}
   m_Father: {fileID: 395769289}
-  m_RootOrder: 3
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
