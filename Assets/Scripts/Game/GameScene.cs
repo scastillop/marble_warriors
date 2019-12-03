@@ -378,7 +378,7 @@ public class GameScene : MonoBehaviour
                         
                         GameObject character = hit.collider.gameObject;
                         //si el raycast golpea un personaje
-                        if (character.GetComponent<Character>())
+                        if (character.GetComponent<Character>() && character.GetComponent<Character>().actualStat.hp > 0)
                         {
                             //si la habilidad tiene un unico objetivo
                             if (lastButtonActPressed.skill.target.Equals("single"))
@@ -523,6 +523,10 @@ public class GameScene : MonoBehaviour
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
         //envio mensaje de termino de turno y envio las acciones
         Message("Turn End!", 20, 1f, delegate { SendActions(); });
+        //solidifico los personajes dentro de unos segundos
+        StartCoroutine(WaitforSolidificateCharacters(0.7f));
+        //seteo el modo de seleccion de personaje en false
+        this.selectingTarget = false;
     }
 
     //funcion que termina el turno
