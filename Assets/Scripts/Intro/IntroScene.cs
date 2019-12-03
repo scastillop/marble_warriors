@@ -24,7 +24,7 @@ public class IntroScene : MonoBehaviour
             PlayerPrefs.SetString("name", "qwe1");
         }
         //seteo direccion del servidor principal
-        PlayerPrefs.SetString("mainServerAddress", "http://localhost:9000/socket.io/");
+        PlayerPrefs.SetString("mainServerAddress", "http://fex02.ddns.net:9000/socket.io/");
 
         //informo que me conectare al servidor 
         Loading(true, "Connection failed trying to reconnect...");
