@@ -1,6 +1,29 @@
 //creo el servidor
 var express=require("express");
 var app=express();
+
+//genero variables para la visualizacion de datos en navegador
+var debugPort = 8080;
+app.get('/', function (req, res) {
+	//hago un resumen d elos datos que quiero mostrar
+	total = {};
+	total.players = players;
+	total.games = games;
+	total.modularServers = modularServers;
+	var cache = [];
+	//envio los datos en Json
+	res.send(JSON.stringify(total, function(key, value) {
+		if (typeof value === 'object' && value !== null) {
+			if (cache.indexOf(value) !== -1) {
+				return;
+			}
+			cache.push(value);
+		}
+		return value;
+	}));
+});
+app.listen(debugPort, function () {});
+
 var server=require("http").createServer(app);
 var io=require("socket.io").listen(server);
 var port=9000;
@@ -14,21 +37,34 @@ server.listen(port, function() {
 });
 
 //aqui se guardan los servidores modulares
-var modularServers = [];
+var modularServers = {};
 
 //aqui se guardaran las partidas en curso
 var games = [];
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
-var players = [];
-
+var players = {};
 
 io.on("connection",function(socket){
 	//cuando un servidor modular se conecta
 	socket.on("SuscribeServer", function(address, callback){
+		//verifico que el servidor no estuviera previamente guardado
+		var found="";
+		for (var serverKey in modularServers){
+			//si lo estaba
+			if(modularServers[serverKey].address==address){
+				//lo guardo
+				found=serverKey;
+			}
+		}
+		//si lo encontre
+		if(found!=""){
+			//lo elimino
+			delete modularServers[found];
+		}
 		console.log(new Date(Date.now()).toLocaleString()+" Modular server connected from "+socket.request.connection.remoteAddress);
 		//guardo el servidor modular en mi lista de servidores
-		modularServers[socket.id] = [];
+		modularServers[socket.id] = {};
 		modularServers[socket.id].socket = socket;
 		modularServers[socket.id].address = address;
 		modularServers[socket.id].games = 0;
@@ -38,7 +74,7 @@ io.on("connection",function(socket){
 	//cuando un jugador se conecta
 	socket.on("SuscribeClient", function(data){
 		//veo si el jugadore estaba anteriormente en partida
-		if(players[data.email]&&games[players[data.email].gameIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex].status=="onGame"){
+		if(players[data.email]&&games[players[data.email].gameIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex].status=="onGame"){
 			//informo que se reconecto un cliente
 			console.log(new Date(Date.now()).toLocaleString()+" Client ("+data.email+") re connected from "+socket.request.connection.remoteAddress);
 			//si ya estaba guardo su nuevo socket
@@ -50,7 +86,7 @@ io.on("connection",function(socket){
 			//informo que se conecto un cliente
 			console.log(new Date(Date.now()).toLocaleString()+" Client ("+data.email+") connected from "+socket.request.connection.remoteAddress);
 			//de lo contrario guardo al jugador
-			players[data.email] = [];
+			players[data.email] = {};
 			players[data.email].socket = socket;
 			players[data.email].email = data.email;
 			players[data.email].status = "connected";
@@ -204,14 +240,32 @@ io.on("connection",function(socket){
 					foundIndex=gameIndex;
 				}
 			}
-			//busco los personajes a eliminar
+			//busco los jugadores a eliminar
 			for (var playerKey in games[foundIndex].players){
-				//elimino el personaje
-				players.splice(games[foundIndex].players[playerKey].email, 1);
+				//elimino el jugador
+				delete players[games[foundIndex].players[playerKey].email];
 			}
 			//elimino el juego de mi lista
 			games.splice(foundIndex, 1);
 		}
+	});
+
+	//cuando un servidor modular me indica que no encuentra un jugador
+	socket.on("PlayerNotFound", function(email){
+		//verifico que el servidor exista el servidor que esta informando el termino de juego
+		if(modularServers[socket.id]&&players[email]){
+			var gameIndex = players[email].gameIndex;
+			//busco los personajes a eliminar
+			if(games[gameIndex]){
+				for (var playerKey in games[gameIndex].players){
+					//elimino el jugador
+					delete players[games[gameIndex].players[playerKey].email];
+				}
+				//elimino el juego de mi lista
+				games.splice(gameIndex, 1);
+			}
+		}
+
 	});
 
 	//cuando un servidor modular me indica cuantas partidas esta administrando

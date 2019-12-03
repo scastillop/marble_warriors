@@ -18,7 +18,7 @@ public class IntroScene : MonoBehaviour
     void Start()
     {
         //seteo variables de prueba
-        if (PlayerPrefs.GetString("email", "")=="")
+        if (PlayerPrefs.GetString("email", "").Equals(""))
         {
             PlayerPrefs.SetString("email", "qwe@qwe.cl");
             PlayerPrefs.SetString("name", "qwe1");
@@ -91,6 +91,7 @@ public class IntroScene : MonoBehaviour
     {
         Loading(false, "");
         Message("Opponent Found!", 20, 1f, delegate {});
+        this.socketManager.Close();
         SceneManager.LoadScene("CharacterSelection");
     }
 

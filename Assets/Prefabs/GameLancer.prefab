@@ -1371,7 +1371,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3625305678092295892}
   - component: {fileID: 6033071254419721522}
-  - component: {fileID: 4351569219312936948}
+  - component: {fileID: 694167406874076424}
   - component: {fileID: 809438775872605253}
   - component: {fileID: 5503571730014636081}
   m_Layer: 0
@@ -1417,7 +1417,7 @@ Animator:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorControllerStateOnDisable: 0
---- !u!136 &4351569219312936948
+--- !u!136 &694167406874076424
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1427,10 +1427,10 @@ CapsuleCollider:
   m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
-  m_Radius: 0.3
-  m_Height: 1.7
+  m_Radius: 2.2
+  m_Height: 17
   m_Direction: 1
-  m_Center: {x: 0, y: 0.9, z: 0}
+  m_Center: {x: 0, y: 8.6, z: 0}
 --- !u!23 &809438775872605253
 MeshRenderer:
   m_ObjectHideFlags: 0

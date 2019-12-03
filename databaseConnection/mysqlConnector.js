@@ -12,17 +12,16 @@ function connect(){
 
 	con.connect(function(err) { 
 		if(err) { 
-			console.log(new Date(Date.now()).toLocaleString()+'Error when connecting to db:', err);
+			console.log(new Date(Date.now()).toLocaleString()+' Error when connecting to db:', err);
 			setTimeout(connect, 2000);
 		}                                    
 	});                                    
 		                              
 	con.on('error', function(err) {
-		console.log('db error', err);
 		if(err.code === 'PROTOCOL_CONNECTION_LOST') { 
 			connect();
 		} else {
-			console.log(new Date(Date.now()).toLocaleString()+'Error when connecting to db:', err);
+			console.log(new Date(Date.now()).toLocaleString()+' Error when connecting to db:', err);
 			setTimeout(connect, 2000);
 		}
 	});

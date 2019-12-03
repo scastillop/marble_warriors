@@ -1,12 +1,36 @@
 //creo el servidor
 var express=require("express");
 var app=express();
+
+//genero variables para la visualizacion de datos en navegador
+var debugPort = 8090;
+app.get('/', function (req, res) {
+	//hago un resumen d elos datos que quiero mostrar
+	total = {};
+	total.characters = characters;
+	total.players = players;
+	total.games = games;
+	var cache = [];
+	//envio los datos en Json
+	res.send(JSON.stringify(total, function(key, value) {
+		if (typeof value === 'object' && value !== null) {
+			if (cache.indexOf(value) !== -1) {
+				return;
+			}
+			cache.push(value);
+		}
+		return value;
+	}));
+});
+app.listen(debugPort, function () {});
+
+//genero las variables de servidor
 var server=require("http").createServer(app);
 var ioServer=require("socket.io").listen(server);
 var ioClient=require('socket.io-client');
-var serverUrl='http://localhost';//'http://fex02.ddns.net';
+var serverUrl='http://fex02.ddns.net';//'http://fex02.ddns.net';
 var serverPort=9000;
-var myUrl='http://localhost';//'http://fex02.ddns.net';
+var myUrl='http://fex02.ddns.net';//'http://fex02.ddns.net';
 var myPort=9010;
 
 //aqui se guardan los datos de los personajes
@@ -16,7 +40,7 @@ var characters = [];
 var games = [];
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
-var players = [];
+var players = {};
 
 // instancio conexion con la base de datos
 var mysqlConnection = require('../databaseConnection/mysqlConnector');
@@ -56,7 +80,7 @@ mysqlConnection.FindAllCharactersWithDetails(function (result) {
 		//cuando el servidor principal me envia un juego
 		socketClient.on('SendGame', (data) => {
 			games.push(data);
-			reportGamesCount();
+			ReportGamesCount();
 		});
 
 		//inicio el servidor
@@ -111,14 +135,28 @@ ioServer.on("connection",function(socket){
 
 	//cuando un cliente me informa que esta listo para iniciar la partida
 	socket.on("ReadyToBegin", function(email){
+		var found = false;
 		//informo que se conecto un cliente
 		console.log(new Date(Date.now()).toLocaleString()+" Client ("+email+") connected from "+socket.request.connection.remoteAddress);
+		//busco si este jugador ya esta guardado
+		var playerFound=""
+		for(var playerKey in players){
+			if(players[playerKey].email==email){
+				playerFound=playerKey;
+			}
+		}
+		//si lo encontre
+		if(playerFound!=""){
+			//elimino el jugador antiguo
+			delete players[playerFound];
+		}
 		//busco si existe algun juego que esté esperando este jugador
 		for(var key in games){
 			//busco juegos en los que esté este jugador
 			for(var playerKey in games[key].players){
 				//si lo encuentro 
 				if(games[key].players[playerKey].email==email){
+					found = true;
 					//verifico si estaba conectado antes
 					if(games[key].players[playerKey].status=="waitingForConnection"){
 						//si el jugador no estaba agrego su socket en el juego y cambio el estado del jugador
@@ -136,7 +174,9 @@ ioServer.on("connection",function(socket){
 							//recorro los personajes que tiene seleccionado el jugador
 							for(var characterIndex in games[key].players[playerKey].charactersIndex){
 								if(characters[characterKey].index==games[key].players[playerKey].charactersIndex[characterIndex]){
-									games[key].players[playerKey].characters.push(JSON.parse(JSON.stringify(characters[characterKey])));
+									character = JSON.parse(JSON.stringify(characters[characterKey]));
+									character.expirables = [];
+									games[key].players[playerKey].characters.push(character);
 								}
 							}
 						}
@@ -173,33 +213,27 @@ ioServer.on("connection",function(socket){
 						}
 					}else{
 						//si el jugador ya estaba elimino el socket antiguo
-						players.splice(games[key].players[playerKey].socket, 1);
+						delete players[games[key].players[playerKey].socket];
 						//guardo su nuevo socket
 						games[key].players[playerKey].socket = socket;
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
 						players[socket.id] = [];
 						players[socket.id].gameIndex = key;
 						players[socket.id].playerIndex = playerKey;
-
-						//busco al enemigo
-						for(var playerEnemyKey in games[key].players){
-							//si el indice no es el mismo quiere decir que es el rival
-							if(playerEnemyKey!=playerKey){
-								//genero una variable donde estara la respuesta
-								var allCharacters = [];
-								//obtengo los personajes aliados
-								allCharacters.push(games[key].players[playerKey].characters);
-								//obtengo los personajes del enemigo
-								allCharacters.push(games[key].players[playerEnemyKey].characters);
-								//envio la respuesta al jugador
-								console.log(games[key].players[playerEnemyKey].characters);
-								games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
-							}
-						}
+						players[socket.id].email = email;
+						//le envio el estado de los personajes
+						GetAllCharacters(socket);
 					}
 				}
 			}
 		};
+		//si no encontre al jugador
+		if(!found){
+			//le informo al servidor principal para que no me lo mande de nuevo
+			socketClient.emit('PlayerNotFound', email);
+			//devuelvo al jugador al intro
+			socket.emit("BackToIntro", "");
+		}
 	});
 
 	//recibe las acciones enviadas por un cliente
@@ -217,6 +251,8 @@ ioServer.on("connection",function(socket){
 		}
 		//si ambos estan en fase de batalla
 		if(playersOnBattle==2){
+			//actualizo los estados de los personajes
+			UpdateTurnChanges(games[players[socket.id].gameIndex]);
 			for(var playerKey in games[players[socket.id].gameIndex].players){
 				//mostrar status de los jugadores
 				/*
@@ -256,52 +292,151 @@ ioServer.on("connection",function(socket){
 					action.name = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].name;
 					action.animation = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].animation;
 					action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
-					//si el afectado es del equipo enemigo
+					action.target = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].target;
+
+					//seteo el o los objetivos
+					var targets = []
+					//si el objetivo es el propio personaje que usa la habilidad
+					if(action.target=="own"){
+						targets.push(action.owner);
+					//si el objetivo es el team completo de quien usa la habilidad
+					}else if(action.target=="ownTeam"){
+						targets.push(0);
+						targets.push(1);
+						targets.push(2);
+						targets.push(3);
+						targets.push(4);
+					//si el objetivo es un personaje unico y a eleccion
+					}else if(action.target=="single"){
+						targets.push(action.affected);
+					//si el objetivo es un equipo completo a eleccion
+					}else if(action.target=="team"){
+						//si el afectado es mayor o igual a 5 es del equipo enemigo
+						if(action.affected>=5){
+							targets.push(5);
+							targets.push(6);
+							targets.push(7);
+							targets.push(8);
+							targets.push(9);
+						//si no es el equipo aliado
+						}else{
+							targets.push(0);
+							targets.push(1);
+							targets.push(2);
+							targets.push(3);
+							targets.push(4);
+						}
+					//si el afectado es un grupo maximo de 3
+					}else if(action.target=="multi3"){
+						//agrego al propio afectado
+						targets.push(action.affected);
+						//si el afectado es mayor o igual a 5 es del equipo enemigo
+						if(action.affected>=5){
+							//agrego a sus compañeros
+							if(action.affected-1>=5){
+								targets.push(action.affected-1);
+							}
+							if(action.affected+1<=9){
+								targets.push(action.affected+1);
+							}
+						//si no es el equipo aliado
+						}else{
+							//agrego a sus compañeros
+							if(action.affected-1>=0){
+								targets.push(action.affected-1);
+							}
+							if(action.affected+1<=4){
+								targets.push(action.affected+1);
+							}
+						}
+					}
+					//verifico si se puede realizar la accion
+					var canDo = false;
 					if(action.affected>=5){
-						//verifico si cumple con los requisitos
 						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5])){
-							//si cumple las condiciones realizo los cambios en el afectado
-							games[gameIndex].players[playerRival].characters[action.affected-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat);
-							
-							//genero la accion de respuesta (datos que van a los jugadores)
-							var actionResponse = action;
-							//primero le seteo los nuevos stats del afectado
-							actionResponse.affectedStat = Object.assign({} , games[gameIndex].players[playerRival].characters[action.affected-5].actualStat);
-							//tambien del owner
-							actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
-							//guardo la accion en la respuesta para el jugador en turno
-							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
-							//console.log(games[gameIndex].players[playerOnTurn].actionsResponse);
+							canDo = true;
+						}
+					}else{
+						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
+							canDo = true;
+						}
+					}
+					//si es que se puede realizar la accion
+					if(canDo){
+						//genero la accion de respuesta (datos que van a los jugadores)
+						var actionResponse = action;
+						//genero las variables para los objetivos
+						var finalTargets =  [];
+						var rivalTargets =  [];
+						//recorro los objetivos
+						for(var targetKey in targets){
+							//si el afectado es del equipo enemigo
+							if(targets[targetKey]>=5){
+								//verifico si cumple con los requisitos
+								if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5])){
+									//si cumple las condiciones realizo los cambios en el afectado
+									games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat, games[gameIndex].turn, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]-5]);
+										
+									//guardo el nuevo objetivo
+									var target = {};
+									//primero le seteo los nuevos stats del afectado
+									target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat));
+									target.affected = targets[targetKey];
+									finalTargets.push(target);
+
+									//ahora para el rival
+									var rivalTarget = JSON.parse(JSON.stringify(target));
+									rivalTarget.affected = targets[targetKey]-5;
+									rivalTargets.push(rivalTarget);
+
+								}	
+							}else{
+								//si el afectado es del mismo equipo
+								//verifico si cumple con los requisitos
+								if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]])){
+									//si cumple las condiciones realizo los cambios en el afectado
+									games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].initialStat, games[gameIndex].turn, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]]);
+
+									//guardo el nuevo objetivo
+									var target = {};
+									//primero le seteo los nuevos stats del afectado
+									target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat));
+									target.affected = targets[targetKey];
+									finalTargets.push(target);
+
+									//ahora para el rival
+									var rivalTarget = JSON.parse(JSON.stringify(target));
+									rivalTarget.affected = targets[targetKey]+5;
+									rivalTargets.push(rivalTarget);
+								}
+							}
+						}
+						//seteo el estado del owner
+						actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
+						//seteo los objetivos
+						actionResponse.targets = finalTargets;
+						//guardo la accion en la respuesta para el jugador en turno
+						games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+						if(action.affected>=5){
 							//actualizo los ids de los personajes pensando en el rival
 							var rivalResponse = Object.assign({} , actionResponse);
 							rivalResponse.owner = actionResponse.owner+5;
 							rivalResponse.affected = actionResponse.affected-5;
+							rivalResponse.targets = rivalTargets;
 							//guardo la accion en la respuesta para el rival
 							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
-						}	
-					}else{
-						//si el afectado es del mismo equipo
-						//verifico si cumple con los requisitos
-						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
-							//si cumple las condiciones realizo los cambios en el afectado
-							games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat, games[gameIndex].players[playerOnTurn].characters[action.affected].initialStat);
-
-							//genero la accion de respuesta (datos que van a los jugadores)
-							var actionResponse = action;
-							//primero le seteo los nuevos stats del afectado
-							actionResponse.affectedStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.affected].actualStat);
-							//tambien del owner
-							actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
-							//guardo la accion en la respuesta para el jugador en turno
-							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+						}else{
 							//actualizo los ids de los personajes pensando en el rival
 							var rivalResponse = Object.assign({} , actionResponse);
 							rivalResponse.owner = actionResponse.owner+5;
 							rivalResponse.affected = actionResponse.affected+5;
+							rivalResponse.targets = rivalTargets;
 							//guardo la accion en la respuesta para el rival
 							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
 						}
 					}
+
+					
 				}
 				//cambio al jugador que ahora tiene el turno de realizar una accion
 				games[players[socket.id].gameIndex].actionTurn = playerRival;
@@ -310,11 +445,14 @@ ioServer.on("connection",function(socket){
 				}
 				pair=!pair;
 			}
+			//cambio el turno
+			games[players[socket.id].gameIndex].turn++;
 			//envío la respuesta a ambos jugadores
 			for(var playerKey in games[players[socket.id].gameIndex].players){
 				games[players[socket.id].gameIndex].players[playerKey].socket.emit("ActionsResponse", games[players[socket.id].gameIndex].players[playerKey].actionsResponse);
 				//seteo al jugador nuevamente en estado de seleccion de acciones
 				games[players[socket.id].gameIndex].players[playerKey].status="selectingActions";
+
 			}
 
 			//ver por consola el estado de los jugadores
@@ -347,10 +485,14 @@ ioServer.on("connection",function(socket){
 			//elimino el juego de mi lista
 			games.splice(players[socket.id].gameIndex, 1);
 			//informo la cantidad de juegos que administro
-			reportGamesCount();
+			ReportGamesCount();
 		}
 	});
 
+	socket.on('UpdateCharacters',function(){
+		UpdateTurnChanges(games[players[socket.id].gameIndex]);
+		GetAllCharacters(socket);
+	});
 	//si un cliente se desconecta
 	/*
 	socket.on('disconnect',function(){
@@ -423,56 +565,92 @@ function MakeChar(position){
 }
 
 //funcion que calcula el efecto de los stats de habilidades sobre los stat de personajes
-function ChangeStat(statOwner, skill, statAffected, initialStat){
+function ChangeStat(statOwner, skill, statAffected, initialStat, turn, affected){
 	//recorro los atributos del stat de la habilidad
 	var statSkill = skill.stats;
 	for(var attributeSkill in statSkill){
-		//si es una modificacion de hp 
-		if(attributeSkill=="hp"){
-			//debo averiguar si es ataque o recuperacion
-			if(statAffected[attributeSkill]+statSkill[attributeSkill]<statAffected[attributeSkill]){
-				//es un ataque! debo ver que tipo de defensa tengo que aplicar
-				switch(skill.type){
-					case "physical":
-						//calculo cuanto aumentara el daño con el atk del owner
-						var damage = statSkill.hp + statSkill.hp*(statOwner.atk/100);
-						//calculo cuanto se reducira el daño con la defensa fisica del afectado 
-						var damage = damage - (damage*(statAffected.def/100));
-					break;
-					case "magical":
-						//calculo cuanto aumentara el daño con el mst del owner
-						var damage = statSkill.hp + statSkill.hp*(statOwner.mst/100);
-						//calculo cuanto se reducira el daño con la defensa magica del afectado 
-						var damage = damage - (damage*(statAffected.mdf/100));
-					break;
+		//valido que el cambio sea mayor que cero y no se trate del id
+		if(statSkill[attributeSkill]!=0&&attributeSkill!="id"){
+			//si es una modificacion de hp 
+			if(attributeSkill=="hp"){
+				//debo averiguar si es ataque o recuperacion
+				if(statAffected[attributeSkill]+statSkill[attributeSkill]<statAffected[attributeSkill]){
+					//es un ataque! debo ver que tipo de defensa tengo que aplicar
+					switch(skill.type){
+						case "physical":
+							//calculo cuanto aumentara el daño con el atk del owner
+							var damage = statSkill.hp + statSkill.hp*(statOwner.atk/100);
+							//calculo cuanto se reducira el daño con la defensa fisica del afectado 
+							var damage = damage - (damage*(statAffected.def/100));
+						break;
+						case "magical":
+							//calculo cuanto aumentara el daño con el mst del owner
+							var damage = statSkill.hp + statSkill.hp*(statOwner.mst/100);
+							//calculo cuanto se reducira el daño con la defensa magica del afectado 
+							var damage = damage - (damage*(statAffected.mdf/100));
+						break;
+					}
+					//si al afectar el atributo queda en negativo debo dejarlo solo en 0
+					if(statAffected[attributeSkill]+damage<0){
+						statAffected[attributeSkill] = 0;
+					}else{
+						//si no, solo ejecuto el daño
+						statAffected[attributeSkill] = statAffected[attributeSkill]+damage;
+					}
+				}else{
+					//es recuperacion! valido que no me recupere mas del maximo
+					if(statAffected[attributeSkill]+statSkill[attributeSkill]>initialStat[attributeSkill]){
+						statAffected[attributeSkill] = initialStat[attributeSkill];
+					}else{
+						//de lo contrario solo efecuto la recuperacion
+						statAffected[attributeSkill] = statAffected[attributeSkill]+statSkill[attributeSkill];
+					}
 				}
-				//si al afectar el atributo queda en negativo debo dejarlo solo en 0
-				if(statAffected[attributeSkill]+damage<0){
+			}else if(attributeSkill=="mp"){
+				//si es mp valido que no reduzca menos de 0
+				if(statAffected[attributeSkill]+statSkill[attributeSkill]<0){
 					statAffected[attributeSkill] = 0;
 				}else{
-					//si no, solo ejecuto el daño
-					statAffected[attributeSkill] = statAffected[attributeSkill]+damage;
+					//de lo contrario valido que si es mp no exeda el maximo del personaje
+					if(statAffected[attributeSkill]+statSkill[attributeSkill]>initialStat[attributeSkill]){
+						statAffected[attributeSkill]=initialStat[attributeSkill];
+					}else{
+						//si no, solo aplico los cambios
+						statAffected[attributeSkill]=statAffected[attributeSkill]+statSkill[attributeSkill];
+					}
 				}
 			}else{
-				//es recuperacion! valido que no me recupere mas del maximo
-				if(statAffected[attributeSkill]+statSkill[attributeSkill]>initialStat[attributeSkill]){
-					statAffected[attributeSkill] = initialStat[attributeSkill];
+				//si no es ni hp ni mp valido si es un cambio con duracion
+				if(skill.duration>0){
+					//si tiene duracion				
+					var difference = 0;
+		 			//valido que no reduzca menos de 0
+					if(statAffected[attributeSkill]+statSkill[attributeSkill]<0){
+						//guardo la diferencia 
+						difference = 0-JSON.parse(JSON.stringify(statAffected[attributeSkill]));
+						//aplico el cambio
+						statAffected[attributeSkill] = 0;
+					}else{
+						//si no, guardo la diferencia 
+						difference = 0-JSON.parse(JSON.stringify(statSkill[attributeSkill]));
+						//aplico los cambios
+						statAffected[attributeSkill]=statAffected[attributeSkill]+statSkill[attributeSkill];
+					}
+					expirable = [];
+					expirable.stat = attributeSkill;
+					expirable.value = difference;
+					expirable.calledAtTurn = turn;
+					expirable.duration = skill.duration;
+					affected.expirables.push(expirable);
+				//si no tiene duracion
 				}else{
-					//de lo contrario solo efecuto la recuperacion
-					statAffected[attributeSkill] = statAffected[attributeSkill]+statSkill[attributeSkill];
-				}
-			}
-		}else{
-			//si no es hp valido que no reduzca menos de 0
-			if(statAffected[attributeSkill]+statSkill[attributeSkill]<0){
-				statAffected[attributeSkill] = 0;
-			}else{
-				//de lo contrario valido que si es mp no exeda el maximo del personaje
-				if(attributeSkill=="mp"&&statAffected[attributeSkill]+statSkill[attributeSkill]>initialStat[attributeSkill]){
-					statAffected[attributeSkill]=initialStat[attributeSkill];
-				}else{
-				//si no, solo aplico los cambios
-					statAffected[attributeSkill]=statAffected[attributeSkill]+statSkill[attributeSkill];
+					//valido que no reduzca menos de 0
+					if(statAffected[attributeSkill]+statSkill[attributeSkill]<0){
+						statAffected[attributeSkill] = 0;
+					}else{
+						//si no, solo aplico los cambios
+						statAffected[attributeSkill]=statAffected[attributeSkill]+statSkill[attributeSkill];
+					}
 				}
 			}
 		}
@@ -493,6 +671,45 @@ function CanDo(owner, skill, affected){
 }
 
 //funcion que informa al servidor principal cuantas partidas estoy trabajando
-function reportGamesCount(){
-	socketClient.emit('reportGamesCount', games.length);	
+function ReportGamesCount(){
+	socketClient.emit('ReportGamesCount', games.length);	
+}
+
+//funcion que actualiza los cambios que duran por turnos
+function UpdateTurnChanges(game){
+	for(var playerKey in game.players){
+		for(var characterKey in game.players[playerKey].characters){
+			for(var expirableKey in game.players[playerKey].characters[characterKey].expirables){
+				if(game.turn>=game.players[playerKey].characters[characterKey].expirables[expirableKey].calledAtTurn+game.players[playerKey].characters[characterKey].expirables[expirableKey].duration){
+					game.players[playerKey].characters[characterKey].actualStat[game.players[playerKey].characters[characterKey].expirables[expirableKey].stat] = game.players[playerKey].characters[characterKey].actualStat[game.players[playerKey].characters[characterKey].expirables[expirableKey].stat] + game.players[playerKey].characters[characterKey].expirables[expirableKey].value;
+					game.players[playerKey].characters[characterKey].expirables.splice(expirableKey,1);
+				}
+			}
+		}
+	}
+}
+
+//funcion que envia el estado actual de los personajess
+function GetAllCharacters(socket){
+	//identifico el juego
+	key = players[socket.id].gameIndex;
+	//recorro los jugadores del juego
+	for(var playerKey in games[key].players){
+		if(games[key].players[playerKey].email==players[socket.id].email){
+			//busco al enemigo
+			for(var playerEnemyKey in games[key].players){
+				//si el indice no es el mismo quiere decir que es el rival
+				if(playerEnemyKey!=playerKey){
+					//genero una variable donde estara la respuesta
+					var allCharacters = [];
+					//obtengo los personajes aliados
+					allCharacters.push(games[key].players[playerKey].characters);
+					//obtengo los personajes del enemigo
+					allCharacters.push(games[key].players[playerEnemyKey].characters);
+					//envio la respuesta al jugador
+					games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
+				}
+			}
+		}
+	}
 }
