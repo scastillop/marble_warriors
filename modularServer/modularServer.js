@@ -163,9 +163,10 @@ ioServer.on("connection",function(socket){
 						games[key].players[playerKey].socket = socket;
 						games[key].players[playerKey].status = "connected";
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-						players[socket.id] = [];
+						players[socket.id] = {};
 						players[socket.id].gameIndex = key;
 						players[socket.id].playerIndex = playerKey;
+						players[socket.id].email = email;
 
 						//obtengo los personajes para el jugador
 						games[key].players[playerKey].characters = [];
@@ -216,7 +217,6 @@ ioServer.on("connection",function(socket){
 						if(players[games[key].players[playerKey].socket]){
 							delete players[games[key].players[playerKey].socket];	
 						}
-						console.log("ya pase");
 						//guardo su nuevo socket
 						games[key].players[playerKey].socket = socket;
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
@@ -495,8 +495,6 @@ ioServer.on("connection",function(socket){
 	//funcion que actualiza el estado de los personajes para los clientes
 	socket.on('UpdateCharacters',function(){
 		//verifico que el juego exista
-		console.log("acato");
-		console.log(games[players[socket.id].gameIndex]);
 		if(games[players[socket.id].gameIndex]){
 			UpdateTurnChanges(games[players[socket.id].gameIndex]);
 			GetAllCharacters(socket, "CharactersUpdate");	
@@ -712,11 +710,11 @@ function GetAllCharacters(socket, method){
 				for (var charKey in games[players[socket.id].gameIndex].players[playerKey].characters){
 					if(games[players[socket.id].gameIndex].players[playerKey].characters[charKey].actualStat.hp>0){
 						alldeath = false;
-						endGame = true;
 					}
 				}
 				//si todos los personajes del jugador estan muertos el juego termino
 				if(alldeath){
+					endGame = true;
 					//informo al servidor prubcipal
 					socketClient.emit('EndGame', games[players[socket.id].gameIndex].id);
 					//informo a los jugadores quien perdio y quien gano
@@ -750,6 +748,7 @@ function GetAllCharacters(socket, method){
 					for(var playerEnemyKey in games[key].players){
 						//si el indice no es el mismo quiere decir que es el rival
 						if(playerEnemyKey!=playerKey){
+							console.log(method);
 							//genero una variable donde estara la respuesta
 							var allCharacters = [];
 							//obtengo los personajes aliados

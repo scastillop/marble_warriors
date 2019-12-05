@@ -660,7 +660,6 @@ public class GameScene : MonoBehaviour
     //funcion que se ejcuta cuando el servidor me envia informacion actualizada de los personajes
     private void UpdateCharacters(Socket socket, Packet packet, params object[] args)
     {
-        Debug.Log("llegue al update");
         //convierto la informacion en un arreglo relacional
         List<object> allCharacters = args[0] as List<object>;
         //procedo a guardar los personajes aliados
@@ -674,10 +673,23 @@ public class GameScene : MonoBehaviour
             button.GetComponent<ButtonChar>().isActive = true;
         }
 
-        //actualizo la UI de estado de los peronajes
+        //limpio las acciones
+        actions = new List<Action>();
+        //regreso los botones de los personajes a su estado original
+        foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+        {
+            //dejo los botones de personajes activos;
+            button.GetComponent<ButtonChar>().isActive = true;
+            button.GetComponent<CanvasGroup>().interactable = true;
+        }
+        //actualizo las barras de estado
         UpdateCharacterMenu();
+        //regreso el boton end turn estado original
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
+        GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
+        //oculto panel de carga
         Loading(false, "");
-        Debug.Log("llegue al mensaje");
+        //informo al jugador
         Message("Turn Start!", 20, 1f, delegate { });
     }
 
@@ -779,12 +791,12 @@ public class GameScene : MonoBehaviour
         if (reason != "")
         {
             //si existe alguna razon por la que ganó (rendicion o salirse del juego)
-            Message("Victory! "+reason, 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
+            Message("Victory! "+reason, 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         else
         {
             //si no solo envìo el mensaje
-            Message("Victory!", 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
+            Message("Victory!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         
     }
@@ -803,12 +815,12 @@ public class GameScene : MonoBehaviour
         if (reason != "")
         {
             //si existe alguna razon por la que perdio (rendicion o salirse del juego)
-            Message("Defeat! " + reason, 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
+            Message("Defeat! " + reason, 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
         else
         {
             //si no solo envìo el mensaje
-            Message("Defeat!", 20, 4f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
+            Message("Defeat!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
         }
     }
 
@@ -848,23 +860,8 @@ public class GameScene : MonoBehaviour
         //si ya no existen mas acciones para realizar
         if (this.performingActions.Count <= this.performingAction)
         {
-            //termino el turno
-            //limpio las acciones
-            actions = new List<Action>();
-            //regreso los botones de los personajes a su estado original
-            foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
-            {
-                //dejo los botones de personajes activos;
-                button.GetComponent<ButtonChar>().isActive = true;
-                button.GetComponent<CanvasGroup>().interactable = true;
-            }
-            //actualizo las barras de estado
-            UpdateCharacterMenu();
-            //regreso el boton end turn estado original
-            GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
-            GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
             //actualizo el estado de los personajes preguntando al servidor
-            WaitforUpdateTargets(5f);
+            StartCoroutine(WaitforUpdateTargets(2f));
         }
         //si aun existen, recorro las acciones que se estan realizando
         int count = 0;
