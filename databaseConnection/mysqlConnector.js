@@ -34,7 +34,7 @@ var GetInformationFromDB = function(sql, dataWhere, callback) {
 	con.query(sql, dataWhere, function (err, result, fields) {
 		if (err){
 			console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err);
-			callback(null);
+			setTimeout(GetInformationFromDB(sql, dataWhere, function call(res){callback(res)}), 2000);
 		} else {
 			callback(result);
 		}

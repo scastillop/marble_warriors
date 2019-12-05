@@ -213,16 +213,19 @@ ioServer.on("connection",function(socket){
 						}
 					}else{
 						//si el jugador ya estaba elimino el socket antiguo
-						delete players[games[key].players[playerKey].socket];
+						if(players[games[key].players[playerKey].socket]){
+							delete players[games[key].players[playerKey].socket];	
+						}
+						console.log("ya pase");
 						//guardo su nuevo socket
 						games[key].players[playerKey].socket = socket;
 						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-						players[socket.id] = [];
+						players[socket.id] = {};
 						players[socket.id].gameIndex = key;
 						players[socket.id].playerIndex = playerKey;
 						players[socket.id].email = email;
 						//le envio el estado de los personajes
-						GetAllCharacters(socket);
+						GetAllCharacters(socket, "GameBegin");
 					}
 				}
 			}
@@ -293,6 +296,7 @@ ioServer.on("connection",function(socket){
 					action.animation = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].animation;
 					action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
 					action.target = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].target;
+					action.effectIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].effectIndex;
 
 					//seteo el o los objetivos
 					var targets = []
@@ -452,7 +456,6 @@ ioServer.on("connection",function(socket){
 				games[players[socket.id].gameIndex].players[playerKey].socket.emit("ActionsResponse", games[players[socket.id].gameIndex].players[playerKey].actionsResponse);
 				//seteo al jugador nuevamente en estado de seleccion de acciones
 				games[players[socket.id].gameIndex].players[playerKey].status="selectingActions";
-
 			}
 
 			//ver por consola el estado de los jugadores
@@ -489,9 +492,15 @@ ioServer.on("connection",function(socket){
 		}
 	});
 
+	//funcion que actualiza el estado de los personajes para los clientes
 	socket.on('UpdateCharacters',function(){
-		UpdateTurnChanges(games[players[socket.id].gameIndex]);
-		GetAllCharacters(socket);
+		//verifico que el juego exista
+		console.log("acato");
+		console.log(games[players[socket.id].gameIndex]);
+		if(games[players[socket.id].gameIndex]){
+			UpdateTurnChanges(games[players[socket.id].gameIndex]);
+			GetAllCharacters(socket, "CharactersUpdate");	
+		}
 	});
 	//si un cliente se desconecta
 	/*
@@ -690,26 +699,70 @@ function UpdateTurnChanges(game){
 }
 
 //funcion que envia el estado actual de los personajess
-function GetAllCharacters(socket){
-	//identifico el juego
-	key = players[socket.id].gameIndex;
-	//recorro los jugadores del juego
-	for(var playerKey in games[key].players){
-		if(games[key].players[playerKey].email==players[socket.id].email){
-			//busco al enemigo
-			for(var playerEnemyKey in games[key].players){
-				//si el indice no es el mismo quiere decir que es el rival
-				if(playerEnemyKey!=playerKey){
-					//genero una variable donde estara la respuesta
-					var allCharacters = [];
-					//obtengo los personajes aliados
-					allCharacters.push(games[key].players[playerKey].characters);
-					//obtengo los personajes del enemigo
-					allCharacters.push(games[key].players[playerEnemyKey].characters);
-					//envio la respuesta al jugador
-					games[key].players[playerKey].socket.emit("GameBegin", allCharacters);
+function GetAllCharacters(socket, method){
+	//verifico que el juego exista
+	if(games[players[socket.id].gameIndex]){
+
+		var endGame = false;
+		var gameFound = true;
+		//verifico que el juego aun no termina
+		for (var playerKey in games[players[socket.id].gameIndex].players){
+			if(games[players[socket.id].gameIndex]){
+				var alldeath = true;
+				for (var charKey in games[players[socket.id].gameIndex].players[playerKey].characters){
+					if(games[players[socket.id].gameIndex].players[playerKey].characters[charKey].actualStat.hp>0){
+						alldeath = false;
+						endGame = true;
+					}
+				}
+				//si todos los personajes del jugador estan muertos el juego termino
+				if(alldeath){
+					//informo al servidor prubcipal
+					socketClient.emit('EndGame', games[players[socket.id].gameIndex].id);
+					//informo a los jugadores quien perdio y quien gano
+					for(var playerKey2 in games[players[socket.id].gameIndex].players){
+						if(playerKey2!=playerKey){
+							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Victory", "(by surrender)");
+						}else{
+							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Defeat", "(by surrender)");
+						}
+					}
+					//elimino el juego de mi lista
+					if(players[socket.id]){
+						games.splice(players[socket.id].gameIndex, 1);
+						//informo la cantidad de juegos que administro
+						ReportGamesCount();	
+					}
+					
+				}
+			}else{
+				gameFound = false;
+			}
+		}
+		//si el juego existe y aun no termina
+		if(!endGame&&gameFound){
+			//identifico el juego
+			key = players[socket.id].gameIndex;
+			//recorro los jugadores del juego
+			for(var playerKey in games[key].players){
+				if(games[key].players[playerKey].email==players[socket.id].email){
+					//busco al enemigo
+					for(var playerEnemyKey in games[key].players){
+						//si el indice no es el mismo quiere decir que es el rival
+						if(playerEnemyKey!=playerKey){
+							//genero una variable donde estara la respuesta
+							var allCharacters = [];
+							//obtengo los personajes aliados
+							allCharacters.push(games[key].players[playerKey].characters);
+							//obtengo los personajes del enemigo
+							allCharacters.push(games[key].players[playerEnemyKey].characters);
+							//envio la respuesta al jugador
+							games[key].players[playerKey].socket.emit(method, allCharacters);
+						}
+					}
 				}
 			}
 		}
 	}
+	
 }

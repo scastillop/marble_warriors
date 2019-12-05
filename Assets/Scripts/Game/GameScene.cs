@@ -29,10 +29,13 @@ public class GameScene : MonoBehaviour
     private int performingAction;
     private List<object> performingActions;
     private bool gameOver;
+    private List<object> objectsOnScene;
 
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
+        //intancio el arreglo de objetos en escena
+        this.objectsOnScene = new List<object>();
         //seteo el panel de carga
         Loading(true, "Loading...");
 
@@ -108,6 +111,8 @@ public class GameScene : MonoBehaviour
         //seteo los eventos que utilizare
         //cuando el servidor me indica que la partida ha empezado
         this.socketManager.Socket.On("GameBegin", GameBegin);
+        //cuando el servidor me indica que debo actualizar el estado de los personajes
+        this.socketManager.Socket.On("CharactersUpdate", UpdateCharacters);
         //cuando el servidor me indica que gané
         this.socketManager.Socket.On("Victory", Victory);
         //cuando el servidor me indica que perdí
@@ -496,6 +501,15 @@ public class GameScene : MonoBehaviour
         }
     }
 
+    //funcion que se ejecuta para volver solidos a los personajes
+    private IEnumerator WaitforUpdateTargets(float duration)
+    {
+        //espero los segundos
+        yield return new WaitForSeconds(duration);
+        //actualizo los personajes
+        socketManager.Socket.Emit("UpdateCharacters", PlayerPrefs.GetString("email"));
+    }
+
     //funcion que se ejecuta al salir del juego
     private void OnApplicationQuit()
     {
@@ -605,6 +619,11 @@ public class GameScene : MonoBehaviour
     //funcion que se ejecuta al inciar el juego (primer turno)
     private void GameBegin(Socket socket, Packet packet, params object[] args)
     {
+        //elimino personajes que pudieran estar creados de antes
+        foreach(GameObject character in this.objectsOnScene)
+        {
+            Destroy(character);
+        }
         //convierto la informacion en un arreglo relacional
         List<object> allCharacters = args[0] as List<object>;
         //procedo a guardar los personajes aliados
@@ -638,6 +657,31 @@ public class GameScene : MonoBehaviour
         Message("Turn Start!", 20, 1f, delegate { });
     }
 
+    //funcion que se ejcuta cuando el servidor me envia informacion actualizada de los personajes
+    private void UpdateCharacters(Socket socket, Packet packet, params object[] args)
+    {
+        Debug.Log("llegue al update");
+        //convierto la informacion en un arreglo relacional
+        List<object> allCharacters = args[0] as List<object>;
+        //procedo a guardar los personajes aliados
+        UpdateTeam(allCharacters[0] as List<object>, "allied");
+        //y enemigos
+        UpdateTeam(allCharacters[1] as List<object>, "enemy");
+        
+        //activo los botones de los personajes
+        foreach (Button button in GameObject.Find("Character Menu").GetComponentsInChildren<Button>())
+        {
+            button.GetComponent<ButtonChar>().isActive = true;
+        }
+
+        //actualizo la UI de estado de los peronajes
+        UpdateCharacterMenu();
+        Loading(false, "");
+        Debug.Log("llegue al mensaje");
+        Message("Turn Start!", 20, 1f, delegate { });
+    }
+
+    //funcion que instancio los personajes de  un equipo
     private void MakeTeam(List<object> charactersServer, String type)
     {
         int basePosition = 0;
@@ -670,6 +714,8 @@ public class GameScene : MonoBehaviour
 
             //instancio el personaje en pantalla
             GameObject character = Instantiate(this.characterPrefab[Convert.ToInt32(characterServer["index"])], this.positions[basePosition + count], this.rotations[basePosition + count]);
+            //guardo el personajes en mis objetos en escena
+            this.objectsOnScene.Add(character);
             //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
             character.GetComponent<Character>().id = Convert.ToInt32(characterServer["id"]);
             character.GetComponent<Character>().characterName = Convert.ToString(characterServer["name"]);
@@ -689,6 +735,31 @@ public class GameScene : MonoBehaviour
         if (type == "enemy")
         {
             this.enemy = new Team(characters);
+        }
+    }
+
+    //funcion que actualiza los personajes de un equipo
+    private void UpdateTeam(List<object> charactersServer, String type)
+    {
+        Team team;
+        if (type == "enemy")
+        {
+            team = this.enemy;
+        }
+        else
+        {
+            team = this.enemy;
+        }
+        int count = 0;
+        List<GameObject> characters = new List<GameObject>();
+        foreach (Dictionary<string, object> characterServer in charactersServer)
+        {
+            //genero el stat del personaje
+            Dictionary<string, object> s2 = characterServer["actualStat"] as Dictionary<string, object>;
+            Stat actualStat = new Stat(Convert.ToInt32(s2["hp"]), Convert.ToInt32(s2["mp"]), Convert.ToInt32(s2["atk"]), Convert.ToInt32(s2["def"]), Convert.ToInt32(s2["spd"]), Convert.ToInt32(s2["mst"]), Convert.ToInt32(s2["mdf"]));
+            //se lo seteo a su personaje correspondiente
+            team.characters[count].GetComponent<Character>().actualStat = actualStat;
+            count++;
         }
     }
 
@@ -795,7 +866,7 @@ public class GameScene : MonoBehaviour
             GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
             GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
             //actualizo el estado de los personajes preguntando al servidor
-            socketManager.Socket.Emit("UpdateCharacters", PlayerPrefs.GetString("email"));
+            WaitforUpdateTargets(5f);
         }
         //si aun existen, recorro las acciones que se estan realizando
         int count = 0;
@@ -842,15 +913,8 @@ public class GameScene : MonoBehaviour
                 //obtengo el estado del owner una vez realizada la accion
                 Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
                 Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
-                //rescato los onjetivos
-                List<object> targets = new List<object>();
-                List<object> targetsData = action["targets"] as List<object>;
-                foreach (object targetData in targetsData)
-                {
-                    targets.Add(targetData);
-                }
                 //realizo la accion
-                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { updateTargets(targets); owner.GetComponent<Character>().SetStat(ownerStat); UpdateCharacterMenu(); this.gameOver = IsGameOver(); }, delegate {if (!this.gameOver){ PerformAction(); }; });
+                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { updateTargets(action["targets"] as List<object>, Convert.ToInt32(action["effectIndex"])); owner.GetComponent<Character>().SetStat(ownerStat, -1); UpdateCharacterMenu();}, delegate { PerformAction(); });
             }
             count++;
         }
@@ -859,7 +923,7 @@ public class GameScene : MonoBehaviour
     }
 
     //funcion que actualiza el estado de grupo de objetivos
-    private void updateTargets(List<object> targets)
+    private void updateTargets(List<object> targets, int effectIndex)
     {
         //recorro la lista de objetivos
         foreach (object targetData in targets)
@@ -883,7 +947,7 @@ public class GameScene : MonoBehaviour
             Dictionary<string, object> affectedStatMap = target["affectedStat"] as Dictionary<string, object>;
             Stat affectedStat = new Stat(Convert.ToInt32(affectedStatMap["hp"]), Convert.ToInt32(affectedStatMap["mp"]), Convert.ToInt32(affectedStatMap["atk"]), Convert.ToInt32(affectedStatMap["def"]), Convert.ToInt32(affectedStatMap["spd"]), Convert.ToInt32(affectedStatMap["mst"]), Convert.ToInt32(affectedStatMap["mdf"]));
             //actualizo el estado del personaje
-            affected.GetComponent<Character>().SetStat(affectedStat);
+            affected.GetComponent<Character>().SetStat(affectedStat, effectIndex);
 
         }
         
