@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class ClickSound : MonoBehaviour
 {
-	public AudioSource mySource;
+    public AudioSource mySource;
 	public AudioClip sound;
 
     public void PlaySound()
@@ -12,9 +12,15 @@ public class ClickSound : MonoBehaviour
 		mySource.PlayOneShot(sound);
     }
 
-    public void PlaySoundBySource(string source)
+    public static void PlaySoundBySource(string source)
     {
         AudioSource audioSource = GameObject.Find(source).GetComponent<AudioSource>();
         audioSource.Play();
+    }
+
+    public static void StopSoundBySource(string source)
+    {
+        AudioSource audioSource = GameObject.Find(source).GetComponent<AudioSource>();
+        audioSource.Stop();
     }
 }
