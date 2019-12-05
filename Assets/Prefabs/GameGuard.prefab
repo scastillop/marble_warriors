@@ -2110,6 +2110,17 @@ MonoBehaviour:
   model: 0
   sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
     type: 3}
+  effectsPrefab:
+  - {fileID: 5275380225641030067, guid: ffcbdc5d685e5c042a5c2921b6c868ef, type: 3}
+  - {fileID: 5901116264683318874, guid: 92535c7c4eb9ca84aa2f0bc2e7bfdb9c, type: 3}
+  - {fileID: 1000011128802252, guid: 96730f8640590934eacb6f860058e7f9, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!1 &4004050962210658524
 GameObject:
   m_ObjectHideFlags: 0
@@ -3120,10 +3131,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 4004050962211079400}
     m_Modifications:
-    - target: {fileID: 100002, guid: d707a69cbd9eb254c83bb24f240ccaa6, type: 3}
-      propertyPath: m_Name
-      value: shield_low_new
-      objectReference: {fileID: 0}
     - target: {fileID: 400002, guid: d707a69cbd9eb254c83bb24f240ccaa6, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.50901884
@@ -3179,6 +3186,10 @@ PrefabInstance:
     - target: {fileID: 400002, guid: d707a69cbd9eb254c83bb24f240ccaa6, type: 3}
       propertyPath: m_LocalScale.z
       value: 0.2240007
+      objectReference: {fileID: 0}
+    - target: {fileID: 100002, guid: d707a69cbd9eb254c83bb24f240ccaa6, type: 3}
+      propertyPath: m_Name
+      value: shield_low_new
       objectReference: {fileID: 0}
     - target: {fileID: 400000, guid: d707a69cbd9eb254c83bb24f240ccaa6, type: 3}
       propertyPath: m_LocalRotation.y

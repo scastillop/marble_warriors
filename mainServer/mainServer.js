@@ -74,7 +74,7 @@ io.on("connection",function(socket){
 	//cuando un jugador se conecta
 	socket.on("SuscribeClient", function(data){
 		//veo si el jugadore estaba anteriormente en partida
-		if(players[data.email]&&games[players[data.email].gameIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex].status=="onGame"){
+		if(players[data.email]&&games[players[data.email].gameIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex]&&games[players[data.email].gameIndex].players[players[data.email].playerIndex].status=="onGame"&&modularServers[games[players[data.email].gameIndex].serverKey]){
 			//informo que se reconecto un cliente
 			console.log(new Date(Date.now()).toLocaleString()+" Client ("+data.email+") re connected from "+socket.request.connection.remoteAddress);
 			//si ya estaba guardo su nuevo socket

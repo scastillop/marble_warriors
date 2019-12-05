@@ -1486,6 +1486,17 @@ MonoBehaviour:
   model: 0
   sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
     type: 3}
+  effectsPrefab:
+  - {fileID: 5275380225641030067, guid: ffcbdc5d685e5c042a5c2921b6c868ef, type: 3}
+  - {fileID: 5901116264683318874, guid: 92535c7c4eb9ca84aa2f0bc2e7bfdb9c, type: 3}
+  - {fileID: 1000011128802252, guid: 96730f8640590934eacb6f860058e7f9, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!1 &3625305678092059382
 GameObject:
   m_ObjectHideFlags: 0
@@ -2345,10 +2356,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 3625305678092295892}
     m_Modifications:
-    - target: {fileID: 100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
-      propertyPath: m_Name
-      value: Spear
-      objectReference: {fileID: 0}
     - target: {fileID: 400000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
       propertyPath: m_LocalPosition.x
       value: 2.6999924
@@ -2404,6 +2411,10 @@ PrefabInstance:
     - target: {fileID: 400000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
       propertyPath: m_LocalScale.z
       value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
+      propertyPath: m_Name
+      value: Spear
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}

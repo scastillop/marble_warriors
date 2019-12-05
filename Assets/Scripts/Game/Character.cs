@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -24,6 +25,7 @@ public class Character : MonoBehaviour
     private UnityAction executeChanges;
     private UnityAction nextAction;
     private float walkSpeed;
+    public List<GameObject> effectsPrefab;
 
     private void Start()
     {
@@ -34,7 +36,7 @@ public class Character : MonoBehaviour
         //seteo el id de posicion (1 al 10)
         this.targetPosition = transform.position;
         //seteo la velocidad al caminar
-        this.walkSpeed = 4f;
+        this.walkSpeed = 6f;
         //seteo mi animator (para ejecutar animaciones posteriormente)
         this.animator = GetComponent<Animator>();
         //obtengo la posicion del cavas (UI)
@@ -47,6 +49,14 @@ public class Character : MonoBehaviour
         this.hpSlider.GetComponent<RectTransform>().transform.SetAsFirstSibling();
         //seteo el valor de la barra de vida
         UpdateBars();
+        //si el personaje murio, ejecuta su animacion
+        if (this.actualStat.hp == 0)
+        {
+            this.animator.Play("Death",0,1);
+            this.actionStatus = "dying";
+            //y oculto su barra de vida
+            this.hpSlider.GetComponent<CanvasGroup>().alpha = 0;
+        }
     }
 
     public void UpdateBars()
@@ -64,10 +74,6 @@ public class Character : MonoBehaviour
         this.hpSlider.GetComponent<Slider>().value = (float) this.actualStat.hp / this.initialStat.hp;
     }
 
-    void OnGUI()
-    {
-       
-    }
 
     private void Update()
     {
@@ -204,8 +210,16 @@ public class Character : MonoBehaviour
     }
 
     //funcion que sirve para actualizar las estadisticas del personaje
-    public void SetStat(Stat stat)
+    public void SetStat(Stat stat, int effectIndex)
     {
+        //verifico si se debe activar un efecto
+        if (effectIndex >= 0)
+        {
+            //si es cero o mas, activo el efecto
+            GameObject effect = Instantiate(this.effectsPrefab[effectIndex], this.transform.position, this.transform.rotation);
+            //dejo programada su eliminacion
+            StartCoroutine(destroyDelay(effect, 10f));
+        }
         this.actualStat = stat;
         UpdateBars();
         //si el personaje murio, ejecuta su animacion
@@ -223,5 +237,15 @@ public class Character : MonoBehaviour
     {
         //aplico los cambios en el afectado
         this.executeChanges.Invoke();
+    }
+
+    //funcion que destruye objetos de la pantalla
+    private IEnumerator destroyDelay(GameObject objecto, float duration)
+    {
+        //espero los segundos
+        yield return new WaitForSeconds(duration);
+        //destruyo el objeto
+        Destroy(objecto);
+        
     }
 }
