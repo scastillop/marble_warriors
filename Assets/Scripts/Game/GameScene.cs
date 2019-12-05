@@ -773,8 +773,7 @@ public class GameScene : MonoBehaviour
         Loading(false, "");
 
         //reproduzco la musica
-        ClickSound soundInstance = new ClickSound();
-        soundInstance.PlaySoundBySource("Audio Source Victory");
+        ClickSound.PlaySoundBySource("Audio Source Victory");
 
         //informo al jugador y lo mando a la pantalla de inicio
         if (reason != "")
@@ -798,8 +797,7 @@ public class GameScene : MonoBehaviour
         //quito el panel de carga
         Loading(false, "");
         
-        ClickSound soundInstance = new ClickSound();
-        soundInstance.PlaySoundBySource("Audio Source Lose");
+        ClickSound.PlaySoundBySource("Audio Source Lose");
 
         //informo al jugador y lo mando a la pantalla de inicio
         if (reason != "")
@@ -959,7 +957,6 @@ public class GameScene : MonoBehaviour
         bool isOver = false;
         //recorro los personajes aliados
         bool charsDead = true;
-        ClickSound soundInstance = new ClickSound();
         foreach (GameObject character in allied.characters)
         {
             //busco si aun existen personajes vivos
@@ -972,7 +969,7 @@ public class GameScene : MonoBehaviour
         if (charsDead)
         {
             Message("Defeat!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
-            soundInstance.PlaySoundBySource("Audio Source Lose");
+            ClickSound.PlaySoundBySource("Audio Source Lose");
             isOver = true;
         }
         //si aun tengo personajes vivos, verifico que los del rival
@@ -992,7 +989,7 @@ public class GameScene : MonoBehaviour
             if (enemiesDead)
             {
                 Message("Victory!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
-                soundInstance.PlaySoundBySource("Audio Source Victory");
+                ClickSound.PlaySoundBySource("Audio Source Victory");
                 isOver = true;
             }
         }
