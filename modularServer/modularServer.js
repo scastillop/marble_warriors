@@ -379,7 +379,7 @@ ioServer.on("connection",function(socket){
 								//verifico si cumple con los requisitos
 								if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5])){
 									//si cumple las condiciones realizo los cambios en el afectado
-									games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat, games[gameIndex].turn, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]-5]);
+									games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat, games[gameIndex].turn, games[gameIndex].players[playerRival].characters[targets[targetKey]-5]);
 										
 									//guardo el nuevo objetivo
 									var target = {};
@@ -643,7 +643,7 @@ function ChangeStat(statOwner, skill, statAffected, initialStat, turn, affected)
 						//aplico los cambios
 						statAffected[attributeSkill]=statAffected[attributeSkill]+statSkill[attributeSkill];
 					}
-					expirable = [];
+					expirable = {};
 					expirable.stat = attributeSkill;
 					expirable.value = difference;
 					expirable.calledAtTurn = turn;
@@ -720,9 +720,9 @@ function GetAllCharacters(socket, method){
 					//informo a los jugadores quien perdio y quien gano
 					for(var playerKey2 in games[players[socket.id].gameIndex].players){
 						if(playerKey2!=playerKey){
-							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Victory", "(by surrender)");
+							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Victory", "");
 						}else{
-							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Defeat", "(by surrender)");
+							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Defeat", "");
 						}
 					}
 					//elimino el juego de mi lista
@@ -748,7 +748,6 @@ function GetAllCharacters(socket, method){
 					for(var playerEnemyKey in games[key].players){
 						//si el indice no es el mismo quiere decir que es el rival
 						if(playerEnemyKey!=playerKey){
-							console.log(method);
 							//genero una variable donde estara la respuesta
 							var allCharacters = [];
 							//obtengo los personajes aliados

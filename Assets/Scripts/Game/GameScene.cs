@@ -735,7 +735,7 @@ public class GameScene : MonoBehaviour
             character.GetComponent<Character>().initialStat = initialStat;
             character.GetComponent<Character>().actualStat = actualStat;
             character.GetComponent<Character>().skills = skillSet;
-
+            character.GetComponent<Character>().UpdateEffects();
             //agrego el personaje a su grupo
             characters.Add(character);
             count++;
@@ -771,6 +771,7 @@ public class GameScene : MonoBehaviour
             Stat actualStat = new Stat(Convert.ToInt32(s2["hp"]), Convert.ToInt32(s2["mp"]), Convert.ToInt32(s2["atk"]), Convert.ToInt32(s2["def"]), Convert.ToInt32(s2["spd"]), Convert.ToInt32(s2["mst"]), Convert.ToInt32(s2["mdf"]));
             //se lo seteo a su personaje correspondiente
             team.characters[count].GetComponent<Character>().actualStat = actualStat;
+            team.characters[count].GetComponent<Character>().UpdateEffects();
             count++;
         }
     }
