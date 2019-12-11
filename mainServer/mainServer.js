@@ -110,60 +110,76 @@ io.on("connection",function(socket){
 
 	//cuando un jugador busca oponente
 	socket.on("SearchOpponent", function(email){
-		//busco si existe algun juego que esté esperando un jugador
-		var opponentFound = false;
+		//busco si ya estoy en algun juego
+		var found = false;
 		for(var key in games){
-			//busco juegos que tengan un solo jugador
-			if(games[key].players.length==1){
-				//si lo tiene agrego al jugador
-				var player2 = {
+			//recorro los jugadores del juego
+			for(var playerKey in games[key].players){
+				if(games[key].players[playerKey].email==email){
+					found = true;
+					players[email].gameIndex = key;
+					players[email].playerIndex = playerKey;
+					games[key].players[playerKey].socket = socket;
+				}
+			}
+		}
+		//si no estoy en ningun juego
+		if(!found){
+			//busco si existe algun juego que esté esperando un jugador
+			var opponentFound = false;
+			for(var key in games){
+				//busco juegos que tengan un solo jugador
+				if(games[key].players.length==1){
+					//si lo tiene agrego al jugador
+					var player2 = {
+						id: players[email].id,
+						status: 'connected',
+						socket: socket,
+						email: email,
+						name: players[email].name,
+						index: 1
+					};
+					games[key].players.push(player2);
+					//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
+					players[email].gameIndex = key;
+					players[email].playerIndex = 1;
+					//procedo a generar un identificador unico para el juego
+					var id="";
+					//informo a los jugadores que ya se encontro su oponente
+					for(var playerKey in games[key].players){
+						games[key].players[playerKey].status="selectingChars";
+						games[key].players[playerKey].socket.emit("OpponentFound",key);
+						//agrego informacion al id
+						id = id + games[key].players[playerKey].socket.id;
+					}
+					games[key].id = id;
+					opponentFound = true;
+				}
+			};
+			//si no encuentro juegos con un solo jugador creo un nuevo juego para el jugador
+			if(!opponentFound){
+				//creo al jugador
+				var gamePlayers = [];
+				var player1 = {
 					id: players[email].id,
 					status: 'connected',
 					socket: socket,
 					email: email,
 					name: players[email].name,
-					index: 1
+					index: 0
 				};
-				games[key].players.push(player2);
-				//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-				players[email].gameIndex = key;
-				players[email].playerIndex = 1;
-				//procedo a generar un identificador unico para el juego
-				var id="";
-				//informo a los jugadores que ya se encontro su oponente
-				for(var playerKey in games[key].players){
-					games[key].players[playerKey].status="selectingChars";
-					games[key].players[playerKey].socket.emit("OpponentFound",key);
-					//agrego informacion al id
-					id = id + games[key].players[playerKey].socket.id;
-				}
-				games[key].id = id;
-				opponentFound = true;
+				gamePlayers.push(player1);
+				//creo una partida
+				var game = {
+					turn: 0,
+					players: gamePlayers,
+				};
+				//guardo el juego
+				games.push(game);
+				//guardo al jugador
+				players[email].gameIndex = games.indexOf(game);
+				players[email].playerIndex = 0;
 			}
-		};
-		//si no encuentro juegos con un solo jugador creo un nuevo juego para el jugador
-		if(!opponentFound){
-			//creo al jugador
-			var gamePlayers = [];
-			var player1 = {
-				id: players[email].id,
-				status: 'connected',
-				socket: socket,
-				email: email,
-				name: players[email].name,
-				index: 0
-			};
-			gamePlayers.push(player1);
-			//creo una partida
-			var game = {
-				turn: 0,
-				players: gamePlayers,
-			};
-			//guardo el juego
-			games.push(game);
-			//guardo al jugador
-			players[email].gameIndex = games.indexOf(game);
-			players[email].playerIndex = 0;
 		}
 	});
 

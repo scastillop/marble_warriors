@@ -26,6 +26,15 @@ public class Character : MonoBehaviour
     private UnityAction nextAction;
     private float walkSpeed;
     public List<GameObject> effectsPrefab;
+    public GameObject effectAttackPrefab;
+    public GameObject effectDefensePrefab;
+    private GameObject effectAttackInstance;
+    private GameObject effectDefenseInstance;
+    public GameObject effectAttackLowPrefab;
+    public GameObject effectDefenseLowPrefab;
+    private GameObject effectAttackLowInstance;
+    private GameObject effectDefenseLowInstance;
+
 
     private void Start()
     {
@@ -85,10 +94,24 @@ public class Character : MonoBehaviour
                 //si el personaje ya termino de animarse paso al siguiente estado (caminar)
                 if (!AnimatorIsPlaying("Awake"))
                 {
-                    //activo la animacion de caminar
-                    this.animator.Play("Walk");
-                    //cambio el estado
-                    this.actionStatus = "going";
+                    //si es que necesito caminar
+                    if (this.transform.position != this.targetPosition)
+                    {
+                        //activo la animacion de caminar
+                        this.animator.Play("Walk");
+                        //cambio el estado
+                        this.actionStatus = "going";
+                    }
+                    //si no necesito caminar
+                    else
+                    {
+                        //ejecuto la animacion de la accion
+                        this.animator.Play(this.actionPerforming);
+                        //cambio el estado de la accion a "actuando"
+                        this.actionStatus = "acting";
+                        //giro al personaje hacia su enemigo
+                        transform.LookAt(this.affectedPosition);
+                    }
                 }
                 break;
             //si el personaje se dirige a realizar una accion
@@ -98,6 +121,8 @@ public class Character : MonoBehaviour
                 {
                     //actualizo la barra de vida para que se mantenga sobre el personaje
                     UpdateBars();
+                    //actualizo la posicion de los efectos (ataque/defensa)
+                    UpdateEffectsPosition();
                     //giro al personaje hacia su objetivo
                     this.transform.LookAt(this.targetPosition);
                     //muevo al personaje
@@ -131,10 +156,25 @@ public class Character : MonoBehaviour
                 //si el personaje ya termino de moverse
                 if (!AnimatorIsPlaying())
                 {
-                    //activo la animacion de caminar
-                    this.animator.Play("Walk");
-                    //cambio el estado de la accion para que el personaje regrese a su posicion inicial
-                    this.actionStatus = "backing";
+                    //si no necesito caminar
+                    if (this.initialPosition != this.targetPosition)
+                    {
+                        //activo la animacion de caminar
+                        this.animator.Play("Walk");
+                        //cambio el estado de la accion para que el personaje regrese a su posicion inicial
+                        this.actionStatus = "backing";
+                    }
+                    else
+                    {
+                        //detengo la animacion
+                        this.animator.Play("Sleep");
+                        //cambio el estado de la accion a "durmiendo"
+                        this.actionStatus = "stand";
+                        //giro al personaje hacia su orientacion original
+                        transform.rotation = this.initialRotation;
+                        //continuo con la siguiente accion
+                        this.nextAction.Invoke();
+                    }
                 }
                 break;
             //si el personaje esta regresando a su posicion original
@@ -144,6 +184,8 @@ public class Character : MonoBehaviour
                 {
                     //actualizo la barra de vide para que se mantenga sobre el personaje
                     UpdateBars();
+                    //actualizo la posicion de los efectos (ataque/defensa)
+                    UpdateEffectsPosition();
                     //giro al personaje hacia su objetivo
                     transform.LookAt(this.initialPosition);
                     //muevo al personaje
@@ -230,6 +272,7 @@ public class Character : MonoBehaviour
             //y oculto su barra de vida
             this.hpSlider.GetComponent<CanvasGroup>().alpha = 0;
         }
+        UpdateEffects();
     }
 
     //funcion que ejecuta los cambios (que realizan las acciones)
@@ -247,5 +290,137 @@ public class Character : MonoBehaviour
         //destruyo el objeto
         Destroy(objecto);
         
+    }
+
+    //funcion que activa o desactiva los efectos cuando un personaje tiene los estado alterados
+    public void UpdateEffects()
+    {
+        //si el ataque esta sobre lo normal
+        if (this.actualStat.atk > this.initialStat.atk)
+        {
+            //si no esta activo ya el efecto
+            if (!this.effectAttackInstance)
+            {   
+                //activo el efecto
+                this.effectAttackInstance = Instantiate(this.effectAttackPrefab, this.transform.position, this.transform.rotation);
+            }
+        }
+        //si el ataque es menos de lo normal
+        else if (this.actualStat.atk < this.initialStat.atk)
+        {
+            //si no esta activo ya el efecto
+            if (!this.effectAttackLowInstance)
+            {
+                //activo el efecto
+                this.effectAttackLowInstance = Instantiate(this.effectAttackLowPrefab, this.transform.position, this.transform.rotation);
+            }
+        }
+        //si el ataque es normal
+        else 
+        {
+            //si estaba activo el efecto
+            if (this.effectAttackInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectAttackInstance);
+            }
+            //si estaba activo el efecto de ataque bajo
+            if (this.effectAttackLowInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectAttackLowInstance);
+            }
+        }
+        //si la defensa esta sobre lo normal
+        if (this.actualStat.def > this.initialStat.def )
+        {
+            //si no esta activo ya el efecto
+            if (!this.effectDefenseInstance)
+            {
+                //activo el efecto
+                this.effectDefenseInstance = Instantiate(this.effectDefensePrefab, this.transform.position, this.transform.rotation);
+            }
+        }
+        //si la defensa es menos de lo normal
+        else if (this.actualStat.def < this.initialStat.def)
+        {
+            //si no esta activo ya el efecto
+            if (!this.effectDefenseLowInstance)
+            {
+                //activo el efecto
+                this.effectDefenseLowInstance = Instantiate(this.effectDefenseLowPrefab, this.transform.position, this.transform.rotation);
+            }
+        }
+        //si la defensa es normal
+        else
+        {
+            //si estaba activo el efecto
+            if (this.effectDefenseInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectDefenseInstance);
+            }
+            //si estaba activo el efecto de defensa bajo
+            if (this.effectDefenseLowInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectDefenseLowInstance);
+            }
+        }
+        //si el personaje esta muerto
+        if(this.actualStat.hp == 0)
+        {
+            //ataque
+            //si estaba activo el efecto
+            if (this.effectAttackInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectAttackInstance);
+            }
+            //si estaba activo el efecto de ataque bajo
+            if (this.effectAttackLowInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectAttackLowInstance);
+            }
+            //defensa
+            //si estaba activo el efecto
+            if (this.effectDefenseInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectDefenseInstance);
+            }
+            //si estaba activo el efecto de defensa bajo
+            if (this.effectDefenseLowInstance)
+            {
+                //desactivo el efecto
+                Destroy(this.effectDefenseLowInstance);
+            }
+        }
+    }
+
+    //funcion que actualiza la posicion de los efectos
+    private void UpdateEffectsPosition()
+    {
+        if (this.effectAttackInstance)
+        {
+            //si esta activo el efecto de ataque
+            this.effectAttackInstance.transform.position = this.transform.position;
+        }
+        if (this.effectDefenseInstance)
+        {
+            //si esta activo el efecto de defensa
+            this.effectDefenseInstance.transform.position = this.transform.position;
+        }
+        if (this.effectAttackLowInstance)
+        {
+            //si esta activo el efecto de ataque bajo
+            this.effectAttackLowInstance.transform.position = this.transform.position;
+        }
+        if (this.effectDefenseLowInstance)
+        {
+            //si esta activo el efecto de defensa baja
+            this.effectDefenseLowInstance.transform.position = this.transform.position;
+        }
     }
 }

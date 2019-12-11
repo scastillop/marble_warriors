@@ -1497,6 +1497,14 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  effectAttackPrefab: {fileID: 4756655542060842278, guid: 6e72a3fedf86ea048bec7fbeb1c08d7b,
+    type: 3}
+  effectDefensePrefab: {fileID: 6660881619853702235, guid: 736d77d6e869bfe45967c64517bf3e18,
+    type: 3}
+  effectAttackLowPrefab: {fileID: 7859116000123542668, guid: 239816e43c8db334ea0360504270a322,
+    type: 3}
+  effectDefenseLowPrefab: {fileID: 6768543849169736892, guid: bf18b0911d2abad49baa9b33e658ed41,
+    type: 3}
 --- !u!1 &3625305678092059382
 GameObject:
   m_ObjectHideFlags: 0
@@ -2356,6 +2364,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 3625305678092295892}
     m_Modifications:
+    - target: {fileID: 100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
+      propertyPath: m_Name
+      value: Spear
+      objectReference: {fileID: 0}
     - target: {fileID: 400000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
       propertyPath: m_LocalPosition.x
       value: 2.6999924
@@ -2411,10 +2423,6 @@ PrefabInstance:
     - target: {fileID: 400000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
       propertyPath: m_LocalScale.z
       value: 10
-      objectReference: {fileID: 0}
-    - target: {fileID: 100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
-      propertyPath: m_Name
-      value: Spear
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3611dda95e5315f47afe6417f71127f5, type: 3}
