@@ -20,7 +20,7 @@ public class IntroScene : MonoBehaviour
         //seteo variables de prueba
         if (PlayerPrefs.GetString("email", "").Equals(""))
         {
-            PlayerPrefs.SetString("email", "qwe@qwe.cl");
+            PlayerPrefs.SetString("email", "seba@qwe.cl");
             PlayerPrefs.SetString("name", "qwe1");
         }
         //seteo direccion del servidor principal
