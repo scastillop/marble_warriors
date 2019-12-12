@@ -34,6 +34,8 @@ public class GameScene : MonoBehaviour
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
+        //Inicializo el audio de la escena
+        ClickSound.PlaySoundBySource("Audio Source Game");
         //intancio el arreglo de objetos en escena
         this.objectsOnScene = new List<object>();
         //seteo el panel de carga
@@ -532,6 +534,8 @@ public class GameScene : MonoBehaviour
     //funcion que termina el turno
     private void EndTurn()
     {
+        //Finalizamos el audio
+        ClickSound.StopSoundBySource("Audio Source Game");
         //desabilitpo el boton de fin de turno
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
@@ -546,6 +550,8 @@ public class GameScene : MonoBehaviour
     //funcion que termina el turno
     private void Surrender()
     {
+        //Finalizamos el audio
+        ClickSound.StopSoundBySource("Audio Source Game");
         //seteo pantalla de carga
         Loading(true, "Sending surrender to the server...");
         //envio la rendicion al servidor

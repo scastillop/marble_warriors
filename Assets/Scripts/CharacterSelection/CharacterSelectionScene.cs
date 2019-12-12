@@ -20,6 +20,7 @@ public class CharacterSelectionScene : MonoBehaviour
 
     void Start()
     {
+        ClickSound.PlaySoundBySource("Audio Source Background");
         //seteo las variables de prueba
         this.testEmail = "qwe@qwe.cl";
 
@@ -290,6 +291,8 @@ public class CharacterSelectionScene : MonoBehaviour
         PlayerPrefs.SetString("serverAddress", args[0] as string);
         //cierro el socket
         this.socketManager.Close();
+        //Finalizamos el audio
+        ClickSound.StopSoundBySource("Audio Source Background");
         //mando al jugador a la escena de juego
         SceneManager.LoadScene("Game");
     }
