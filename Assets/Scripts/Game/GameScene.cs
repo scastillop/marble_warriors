@@ -329,7 +329,10 @@ public class GameScene : MonoBehaviour
             //seteo en true la fase de seleccion de objetivos
             this.selectingTarget = true;
         }
-
+        foreach (Renderer renderer in lastButtonActPressed.character.GetComponentsInChildren<Renderer>())
+        {
+            renderer.material.shader = Shader.Find("Standard (Specular setup)");
+        }
         
     }
 
@@ -383,7 +386,7 @@ public class GameScene : MonoBehaviour
                         
                         GameObject character = hit.collider.gameObject;
                         //si el raycast golpea un personaje
-                        if (character.GetComponent<Character>() && character.GetComponent<Character>().actualStat.hp > 0)
+                        if (character.GetComponent<Character>() && character.GetComponent<Character>().actualStat.hp > 0 && this.lastButtonActPressed.character != character)
                         {
                             //si la habilidad tiene un unico objetivo
                             if (lastButtonActPressed.skill.target.Equals("single"))
