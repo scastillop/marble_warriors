@@ -64,5 +64,5 @@ Assets/PlayServicesResolver/*
 Assets/PlayServicesResolver.meta
 Assets/Firebase.meta
 obj/Debug/*
-
+Assets/Plugins/Android/*
 

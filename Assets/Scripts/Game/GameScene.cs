@@ -34,8 +34,7 @@ public class GameScene : MonoBehaviour
     //metodo que se ejecuta al iniciar la escena
     private void Start()
     {
-        //Inicializo el audio de la escena
-        ClickSound.PlaySoundBySource("Audio Source Game");
+        
         //intancio el arreglo de objetos en escena
         this.objectsOnScene = new List<object>();
         //seteo el panel de carga
@@ -534,8 +533,6 @@ public class GameScene : MonoBehaviour
     //funcion que termina el turno
     private void EndTurn()
     {
-        //Finalizamos el audio
-        ClickSound.StopSoundBySource("Audio Source Game");
         //desabilitpo el boton de fin de turno
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
@@ -552,6 +549,7 @@ public class GameScene : MonoBehaviour
     {
         //Finalizamos el audio
         ClickSound.StopSoundBySource("Audio Source Game");
+        ClickSound.StopSoundBySource("Audio Source Battle");
         //seteo pantalla de carga
         Loading(true, "Sending surrender to the server...");
         //envio la rendicion al servidor
@@ -625,6 +623,8 @@ public class GameScene : MonoBehaviour
     //funcion que se ejecuta al inciar el juego (primer turno)
     private void GameBegin(Socket socket, Packet packet, params object[] args)
     {
+        //Inicializo el audio de la escena
+        ClickSound.PlaySoundBySource("Audio Source Game");
         //elimino personajes que pudieran estar creados de antes
         foreach(GameObject character in this.objectsOnScene)
         {
@@ -693,6 +693,8 @@ public class GameScene : MonoBehaviour
         //regreso el boton end turn estado original
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = true;
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = true;
+        //Inicializo el audio de la escena
+        ClickSound.PlaySoundBySource("Audio Source Game");
         //oculto panel de carga
         Loading(false, "");
         //informo al jugador
@@ -833,6 +835,10 @@ public class GameScene : MonoBehaviour
     //funcion que se ejecuta cuando el servidor me envia las respuestas de las acciones realizadas
     private void ActionsResponse(Socket socket, Packet packet, params object[] args)
     {
+        //Finalizamos el audio de la seleccion de acciones
+        ClickSound.StopSoundBySource("Audio Source Game");
+        //Inicializo el audio de la batalla
+        ClickSound.PlaySoundBySource("Audio Source Battle");
         //bloqueo el boton end turn
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
@@ -868,6 +874,8 @@ public class GameScene : MonoBehaviour
         {
             //actualizo el estado de los personajes preguntando al servidor
             StartCoroutine(WaitforUpdateTargets(2f));
+            //detengo el audio de la batalla
+            ClickSound.StopSoundBySource("Audio Source Battle");
         }
         //si aun existen, recorro las acciones que se estan realizando
         int count = 0;
