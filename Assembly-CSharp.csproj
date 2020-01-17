@@ -951,6 +951,7 @@
     <Compile Include="Assets\Scripts\Game\Character.cs" />
     <Compile Include="Assets\Scripts\Game\GameScene.cs" />
     <Compile Include="Assets\Scripts\Game\LoadingIcon.cs" />
+    <Compile Include="Assets\Scripts\Game\Projectile.cs" />
     <Compile Include="Assets\Scripts\Game\Skill.cs" />
     <Compile Include="Assets\Scripts\Game\Stat.cs" />
     <Compile Include="Assets\Scripts\Game\Team.cs" />

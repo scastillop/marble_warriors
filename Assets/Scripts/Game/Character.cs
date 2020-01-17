@@ -6,10 +6,8 @@ using UnityEngine.UI;
 
 public class Character : MonoBehaviour
 {
-    public int id;
     public string characterName;
     public int position;
-    public int model;
     public Stat initialStat;
     public Stat actualStat;
     public List<Skill> skills;
@@ -26,6 +24,8 @@ public class Character : MonoBehaviour
     private UnityAction nextAction;
     private float walkSpeed;
     public List<GameObject> effectsPrefab;
+    public List<GameObject> projectilesPrefab;
+    private int projectileIndex;
     public GameObject effectAttackPrefab;
     public GameObject effectDefensePrefab;
     private GameObject effectAttackInstance;
@@ -214,9 +214,11 @@ public class Character : MonoBehaviour
         }
     }
 
-    public void PerformAction(string actionName, Vector3 affectedPosition, Vector3 targetPosition, UnityAction executeChanges, UnityAction nextAction)
+    public void PerformAction(int projectileIndex, string actionName, Vector3 affectedPosition, Vector3 targetPosition, UnityAction executeChanges, UnityAction nextAction)
     {
-        //primero debo mover al personaje a la posicion del enemigo
+        //guardo el proyectil
+        this.projectileIndex = projectileIndex;
+        // debo mover al personaje a la posicion del enemigo
         this.targetPosition = targetPosition;
         //le indico cual es su nuevo objetivo
         this.affectedPosition = affectedPosition;
@@ -230,6 +232,7 @@ public class Character : MonoBehaviour
         this.animator.Play("Awake");
         //le indico que se esta realizando una accion
         this.actionStatus = "awaking";
+
     }
 
     //funcion que detecto si es que el personaje esta realizando una animacion
@@ -260,7 +263,7 @@ public class Character : MonoBehaviour
             //si es cero o mas, activo el efecto
             GameObject effect = Instantiate(this.effectsPrefab[effectIndex], this.transform.position, this.transform.rotation);
             //dejo programada su eliminacion
-            StartCoroutine(destroyDelay(effect, 10f));
+            StartCoroutine(DestroyDelay(effect, 10f));
         }
         this.actualStat = stat;
         UpdateBars();
@@ -283,7 +286,7 @@ public class Character : MonoBehaviour
     }
 
     //funcion que destruye objetos de la pantalla
-    private IEnumerator destroyDelay(GameObject objecto, float duration)
+    private IEnumerator DestroyDelay(GameObject objecto, float duration)
     {
         //espero los segundos
         yield return new WaitForSeconds(duration);
@@ -421,6 +424,50 @@ public class Character : MonoBehaviour
         {
             //si esta activo el efecto de defensa baja
             this.effectDefenseLowInstance.transform.position = this.transform.position;
+        }
+    }
+
+    //funcion que dispara proyectiles
+    public void ShootProjectile()
+    {
+        if (this.projectileIndex > -1)
+        {
+            GameObject vfx;
+            var playerPos = this.affectedPosition;
+            foreach (Transform item in gameObject.GetComponentsInChildren<Transform>(true))
+            {
+                if (item.name == "ProjectileOrigin")
+                {
+                    Vector3 temp = new Vector3(0, 4.0f, 0);
+                    vfx = Instantiate(projectilesPrefab[this.projectileIndex], item.gameObject.transform.position, Quaternion.identity);
+                    Physics.IgnoreCollision(projectilesPrefab[this.projectileIndex].GetComponent<Collider>(), GetComponent<Collider>());
+                    vfx.transform.LookAt(playerPos + temp);
+                }
+            }
+        }
+    }
+
+    //funcion que oculta la lanza del lancero
+    public void hideSpear()
+    {
+        foreach (Transform item in gameObject.GetComponentsInChildren<Transform>(true))
+        {
+            if (item.name == "Spear")
+            {
+                item.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    //funcion que muestra la lanza del lancero
+    public void showSpear()
+    {
+        foreach (Transform item in gameObject.GetComponentsInChildren<Transform>(true))
+        {
+            if (item.name == "Spear")
+            {
+                item.gameObject.SetActive(true);
+            }
         }
     }
 }

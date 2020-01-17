@@ -297,6 +297,7 @@ ioServer.on("connection",function(socket){
 					action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
 					action.target = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].target;
 					action.effectIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].effectIndex;
+					action.projectileIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].projectileIndex;
 
 					//seteo el o los objetivos
 					var targets = []
@@ -480,11 +481,15 @@ ioServer.on("connection",function(socket){
 			//informo a los jugadores quien perdio y quien gano
 			for(var playerKey in games[players[socket.id].gameIndex].players){
 				if(games[players[socket.id].gameIndex].players[playerKey].socket.id!=socket.id){
+					var winner = games[players[socket.id].gameIndex].players[playerKey];
 					games[players[socket.id].gameIndex].players[playerKey].socket.emit("Victory", "(by surrender)");
 				}else{
+					var loser = games[players[socket.id].gameIndex].players[playerKey];
 					games[players[socket.id].gameIndex].players[playerKey].socket.emit("Defeat", "(by surrender)");
 				}
 			}
+			//guardo los resultados en db
+			mysqlConnection.SaveGameResults(winner, loser);
 			//elimino el juego de mi lista
 			games.splice(players[socket.id].gameIndex, 1);
 			//informo la cantidad de juegos que administro
@@ -720,11 +725,15 @@ function GetAllCharacters(socket, method){
 					//informo a los jugadores quien perdio y quien gano
 					for(var playerKey2 in games[players[socket.id].gameIndex].players){
 						if(playerKey2!=playerKey){
+							var winner = games[players[socket.id].gameIndex].players[playerKey2];
 							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Victory", "");
 						}else{
+							var loser = games[players[socket.id].gameIndex].players[playerKey2];
 							games[players[socket.id].gameIndex].players[playerKey2].socket.emit("Defeat", "");
 						}
 					}
+					//guardo los resultados en db
+					mysqlConnection.SaveGameResults(winner, loser);
 					//elimino el juego de mi lista
 					if(players[socket.id]){
 						games.splice(players[socket.id].gameIndex, 1);

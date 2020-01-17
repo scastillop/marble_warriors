@@ -13462,7 +13462,7 @@ MonoBehaviour:
   - {fileID: 4319330609292119654, guid: 7441f32114d752742b302687ba4de11b, type: 3}
   - {fileID: 4007137557792095259, guid: 12cf6773c17c7e449a762f80eb3f3f40, type: 3}
   - {fileID: 6216438986169108837, guid: dd6f8ddade7611a499669f339d2b972d, type: 3}
-  - {fileID: 3625305678092059380, guid: 37b4244baa404b44f86ed6882d00c219, type: 3}
+  - {fileID: 3625305678092059380, guid: f2558978e307b94488b3a0f7f0bd4f80, type: 3}
   - {fileID: 6563714881727679419, guid: d71b4579e49f7534b8c90bad60d0b665, type: 3}
   mainCamera: {fileID: 243355316}
 --- !u!1 &1929447239
@@ -14249,12 +14249,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 438f44578e4ccc14bb2b09bcf54125cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  id: 0
   characterName: 
   position: 0
-  model: 0
   sliderPrefab: {fileID: 0}
   effectsPrefab: []
+  projectilesPrefab: []
   effectAttackPrefab: {fileID: 0}
   effectDefensePrefab: {fileID: 0}
   effectAttackLowPrefab: {fileID: 0}
