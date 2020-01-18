@@ -527,6 +527,9 @@ public class GameScene : MonoBehaviour
         //desabilitpo el boton de fin de turno
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().interactable = false;
         GameObject.Find("End Turn").GetComponent<CanvasGroup>().blocksRaycasts = false;
+        //oculto el menu de acciones
+        GameObject.Find("Actions Menu").GetComponent<CanvasGroup>().alpha = 0f;
+        GameObject.Find("Actions Menu").GetComponent<CanvasGroup>().interactable = false;
         //envio mensaje de termino de turno y envio las acciones
         Message("Turn End!", 20, 1f, delegate { SendActions(); });
         //solidifico los personajes dentro de unos segundos
