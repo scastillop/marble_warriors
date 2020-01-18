@@ -1,5 +1,35 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2516742653886462272
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3671688433090467025}
+  m_Layer: 0
+  m_Name: ProjectileOrigin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3671688433090467025
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2516742653886462272}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 6563714881727846275}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679041
 GameObject:
   m_ObjectHideFlags: 0
@@ -29,7 +59,7 @@ Transform:
   m_Children:
   - {fileID: 6563714881727846311}
   m_Father: {fileID: 6563714881727846275}
-  m_RootOrder: 4
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679043
 GameObject:
@@ -276,7 +306,7 @@ Transform:
   m_Children:
   - {fileID: 6563714881727846327}
   m_Father: {fileID: 6563714881727846275}
-  m_RootOrder: 2
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679059
 GameObject:
@@ -401,7 +431,7 @@ Transform:
   m_Children:
   - {fileID: 6563714881727846335}
   m_Father: {fileID: 6563714881727846275}
-  m_RootOrder: 3
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679067
 GameObject:
@@ -1183,7 +1213,7 @@ Transform:
   m_Children:
   - {fileID: 6563714881727846279}
   m_Father: {fileID: 6563714881727846275}
-  m_RootOrder: 0
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679395
 GameObject:
@@ -1212,6 +1242,7 @@ Transform:
   m_LocalPosition: {x: 0.2671313, y: -0.00000092042194, z: -0.00000056863706}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
+  - {fileID: 3671688433090467025}
   - {fileID: 6563714881727846273}
   - {fileID: 6563714881727846281}
   - {fileID: 6563714881727846321}
@@ -1314,7 +1345,7 @@ Transform:
   m_Children:
   - {fileID: 6563714881727846287}
   m_Father: {fileID: 6563714881727846275}
-  m_RootOrder: 1
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6563714881727679403
 GameObject:
@@ -1743,17 +1774,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 438f44578e4ccc14bb2b09bcf54125cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  id: 0
   characterName: 
   position: 0
-  model: 0
   sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
     type: 3}
   effectsPrefab:
   - {fileID: 5275380225641030067, guid: ffcbdc5d685e5c042a5c2921b6c868ef, type: 3}
   - {fileID: 5901116264683318874, guid: 92535c7c4eb9ca84aa2f0bc2e7bfdb9c, type: 3}
   - {fileID: 1000011128802252, guid: 96730f8640590934eacb6f860058e7f9, type: 3}
+  - {fileID: 1454062508791169261, guid: 69001e826521d9b45843bd8e79fb13e1, type: 3}
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  projectilesPrefab:
+  - {fileID: 8462081834516165368, guid: 280ba78c293ad014885b0cdd93ffcf54, type: 3}
+  - {fileID: 1377584598287298640, guid: 166d92e6f97cf4442a350fa8bf1aae01, type: 3}
+  - {fileID: 8462081834516165368, guid: 242369ebd7ad3634bab15fb6d32e83ad, type: 3}
+  - {fileID: 7988458650595125911, guid: 82e0ede79a90b6c4bb79f3b1448c0aa6, type: 3}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}

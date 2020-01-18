@@ -3,7 +3,6 @@ using UnityEngine;
 
 public class Team
 {
-    private int user_id;
     public List<GameObject> characters;
 
     //constructor
@@ -23,6 +22,4 @@ public class Team
     {
         return characters[index];
     }
-
-
 }

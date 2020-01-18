@@ -24,11 +24,8 @@ public class GameScene : MonoBehaviour
     private ButtonAct lastButtonActPressed;
     private List<Action> actions;
     private SocketManager socketManager;
-    private int playerId;
-    private int gameId;
     private int performingAction;
     private List<object> performingActions;
-    private bool gameOver;
     private List<object> objectsOnScene;
 
     //metodo que se ejecuta al iniciar la escena
@@ -38,9 +35,6 @@ public class GameScene : MonoBehaviour
         this.objectsOnScene = new List<object>();
         //seteo el panel de carga
         Loading(true, "Loading...");
-
-        //seteo mi id de jugador
-        this.playerId = 1;
 
         //genero las posiciones por defecto para los 10 personajes
         this.positions = new Vector3[10];
@@ -171,7 +165,6 @@ public class GameScene : MonoBehaviour
         }
 
         //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
-        character.GetComponent<Character>().id = 1;
         character.GetComponent<Character>().characterName = "Swordman";
         character.GetComponent<Character>().position = position;
         character.GetComponent<Character>().actualStat = actualStatChar;
@@ -519,8 +512,6 @@ public class GameScene : MonoBehaviour
             
             if (this.socketManager.State.Equals("Open"))
             {
-                //informo que me voy
-                this.socketManager.Socket.Emit("Leave", this.playerId);
                 //me desconecto
                 this.socketManager.Socket.Disconnect();
             }
@@ -571,7 +562,7 @@ public class GameScene : MonoBehaviour
     }
 
     //funcion que activa el panel de carga
-    private void Loading(Boolean loading, String text)
+    private void Loading(bool loading, string text)
     {
         if (loading)
         {
@@ -594,7 +585,7 @@ public class GameScene : MonoBehaviour
     }
 
     //funcion que muestra un mensaje en pantalla
-    private void Message(String message, int size, float delay, UnityAction action)
+    private void Message(string message, int size, float delay, UnityAction action)
     {
         //cambio el texto
         GameObject.Find("Message").GetComponentInChildren<Text>().fontSize = size;
@@ -694,7 +685,7 @@ public class GameScene : MonoBehaviour
     }
 
     //funcion que instancio los personajes de  un equipo
-    private void MakeTeam(List<object> charactersServer, String type)
+    private void MakeTeam(List<object> charactersServer, string type)
     {
         int basePosition = 0;
         if(type == "enemy")
@@ -728,8 +719,7 @@ public class GameScene : MonoBehaviour
             GameObject character = Instantiate(this.characterPrefab[Convert.ToInt32(characterServer["index"])], this.positions[basePosition + count], this.rotations[basePosition + count]);
             //guardo el personajes en mis objetos en escena
             this.objectsOnScene.Add(character);
-            //seteo el id, nombbre, habilidades, estadisticas y posicion del personaje
-            character.GetComponent<Character>().id = Convert.ToInt32(characterServer["id"]);
+            //seteo el nombbre, habilidades, estadisticas y posicion del personaje
             character.GetComponent<Character>().characterName = Convert.ToString(characterServer["name"]);
             character.GetComponent<Character>().position = basePosition + count;
             character.GetComponent<Character>().initialStat = initialStat;
@@ -910,7 +900,7 @@ public class GameScene : MonoBehaviour
                 Dictionary<string, object> ownerStatMap = action["ownerStat"] as Dictionary<string, object>;
                 Stat ownerStat = new Stat(Convert.ToInt32(ownerStatMap["hp"]), Convert.ToInt32(ownerStatMap["mp"]), Convert.ToInt32(ownerStatMap["atk"]), Convert.ToInt32(ownerStatMap["def"]), Convert.ToInt32(ownerStatMap["spd"]), Convert.ToInt32(ownerStatMap["mst"]), Convert.ToInt32(ownerStatMap["mdf"]));
                 //realizo la accion
-                owner.GetComponent<Character>().PerformAction(Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { updateTargets(action["targets"] as List<object>, Convert.ToInt32(action["effectIndex"])); owner.GetComponent<Character>().SetStat(ownerStat, -1); UpdateCharacterMenu();}, delegate { PerformAction(); });
+                owner.GetComponent<Character>().PerformAction(Convert.ToInt32(action["projectileIndex"]), Convert.ToString(action["animation"]), affected.transform.position, targetPosition, delegate { UpdateTargets(action["targets"] as List<object>, Convert.ToInt32(action["effectIndex"])); owner.GetComponent<Character>().SetStat(ownerStat, -1); UpdateCharacterMenu();}, delegate { PerformAction(); });
             }
             count++;
         }
@@ -919,7 +909,7 @@ public class GameScene : MonoBehaviour
     }
 
     //funcion que actualiza el estado de grupo de objetivos
-    private void updateTargets(List<object> targets, int effectIndex)
+    private void UpdateTargets(List<object> targets, int effectIndex)
     {
         //recorro la lista de objetivos
         foreach (object targetData in targets)
@@ -947,51 +937,6 @@ public class GameScene : MonoBehaviour
 
         }
         
-    }
-
-    //funcion que verifica si algun jugador gano
-    private bool IsGameOver()
-    {
-        bool isOver = false;
-        //recorro los personajes aliados
-        bool charsDead = true;
-        foreach (GameObject character in allied.characters)
-        {
-            //busco si aun existen personajes vivos
-            if (character.GetComponent<Character>().actualStat.hp > 0)
-            {
-                charsDead = false;
-            }
-        }
-        //si no existen personajes vivos entonces pierde el jugador
-        if (charsDead)
-        {
-            Message("Defeat!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
-            ClickSound.PlaySoundBySource("Audio Source Lose");
-            isOver = true;
-        }
-        //si aun tengo personajes vivos, verifico que los del rival
-        else
-        {
-            //recorro los personajes enemigos
-            bool enemiesDead = true;
-            foreach (GameObject character in enemy.characters)
-            {
-                //busco si aun existen personajes vivos
-                if (character.GetComponent<Character>().actualStat.hp > 0)
-                {
-                    enemiesDead = false;
-                }
-            }
-            //si no existen personajes vivos entonces pierde el rival
-            if (enemiesDead)
-            {
-                Message("Victory!", 20, 7f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
-                ClickSound.PlaySoundBySource("Audio Source Victory");
-                isOver = true;
-            }
-        }
-        return isOver;
     }
 
     //funcion que se ejecuta cuando el servidor me envia al intro

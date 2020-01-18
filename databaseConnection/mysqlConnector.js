@@ -34,8 +34,36 @@ var GetInformationFromDB = function(sql, dataWhere, callback) {
 	con.query(sql, dataWhere, function (err, result, fields) {
 		if (err){
 			console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err);
-			setTimeout(GetInformationFromDB(sql, dataWhere, function (res){callback(res)}), 2000);
+			setTimeout(connect, 2000);
+			setTimeout(function(){
+				con.query(sql, dataWhere, function (err2, result2, fields2) {
+					if (err2){
+						console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err2);
+					}else{
+						callback(result2);
+					}
+				});
+			}, 3000);
+		} else {
+			callback(result);
+		}
+	});
+}
 
+var Insert = function(sql, dataWhere, callback) {
+	con.query(sql, dataWhere, function (err, result, fields) {
+		if (err){
+			console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err);
+			setTimeout(connect, 2000);
+			setTimeout(function(){
+				con.query(sql, dataWhere, function (err2, result2, fields2) {
+					if (err2){
+						console.log(new Date(Date.now()).toLocaleString()+" Database error!: "+err2);
+					}else{
+						callback(result2);
+					}
+				});
+			}, 3000);
 		} else {
 			callback(result);
 		}
@@ -147,3 +175,19 @@ exports.FindAllCharactersWithDetails = function (callback) {
 		});
 	});
 };
+
+exports.SaveGameResults = function (winner, loser) {
+	Insert('INSERT INTO gamePlayers (user_id) VALUES (?)', [winner.id], function (result) {
+    	var winnerID = result.insertId;
+    	for (var characterIndex in winner.characters){
+	    	Insert('INSERT INTO playerCharacters (player_id, character_id) VALUES (?, ?)', [winnerID, winner.characters[characterIndex].id], function (result2) {});
+    	}
+    	Insert('INSERT INTO gamePlayers (user_id) VALUES (?)', [loser.id], function (result2) {
+	    	var loserID = result2.insertId;
+	    	for (var characterIndex2 in loser.characters){
+		    	Insert('INSERT INTO playerCharacters (player_id, character_id) VALUES (?, ?)', [loserID, loser.characters[characterIndex2].id], function (result3) {});
+	    	}
+	    	Insert('INSERT INTO games (date_time, winner_id, loser_id) VALUES (NOW(), ?, ?)', [winnerID, loserID], function (result) {});
+		});
+	});
+}

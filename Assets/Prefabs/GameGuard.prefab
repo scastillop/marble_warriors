@@ -2104,17 +2104,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 438f44578e4ccc14bb2b09bcf54125cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  id: 0
   characterName: 
   position: 0
-  model: 0
   sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
     type: 3}
   effectsPrefab:
   - {fileID: 5275380225641030067, guid: ffcbdc5d685e5c042a5c2921b6c868ef, type: 3}
   - {fileID: 5901116264683318874, guid: 92535c7c4eb9ca84aa2f0bc2e7bfdb9c, type: 3}
   - {fileID: 1000011128802252, guid: 96730f8640590934eacb6f860058e7f9, type: 3}
+  - {fileID: 1454062508791169261, guid: 69001e826521d9b45843bd8e79fb13e1, type: 3}
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  projectilesPrefab:
+  - {fileID: 8462081834516165368, guid: 280ba78c293ad014885b0cdd93ffcf54, type: 3}
+  - {fileID: 1377584598287298640, guid: 166d92e6f97cf4442a350fa8bf1aae01, type: 3}
+  - {fileID: 8462081834516165368, guid: 242369ebd7ad3634bab15fb6d32e83ad, type: 3}
+  - {fileID: 7988458650595125911, guid: 82e0ede79a90b6c4bb79f3b1448c0aa6, type: 3}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
