@@ -17,6 +17,7 @@ public class IntroScene : MonoBehaviour
 
     void Start()
     {
+        ClickSound.PlaySoundBySource("Audio Source Intro");
         //seteo variables de prueba
         if (PlayerPrefs.GetString("email", "").Equals(""))
         {
@@ -92,6 +93,8 @@ public class IntroScene : MonoBehaviour
         Loading(false, "");
         Message("Opponent Found!", 20, 1f, delegate {});
         this.socketManager.Close();
+        //Finalizamos el audio
+        ClickSound.StopSoundBySource("Audio Source Intro");
         SceneManager.LoadScene("CharacterSelection");
     }
 
