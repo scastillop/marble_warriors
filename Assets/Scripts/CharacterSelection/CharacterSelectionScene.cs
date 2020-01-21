@@ -59,6 +59,15 @@ public class CharacterSelectionScene : MonoBehaviour
         //cuando el servidor me envia la direccion del servidor modular
         this.socketManager.Socket.On("SetServer", SetServer);
 
+        //cuando el servidor me manda al intro
+        this.socketManager.Socket.On("BackToIntro", BackToIntro);
+
+        //cuando el servidor me manda a mostrar un mensaje
+        this.socketManager.Socket.On("ShowMessage", ShowMessage);
+
+        //cuando el servidor me pide que espere
+        this.socketManager.Socket.On("Wait", Wait);
+
         //inicio la conexion con el servidor
         this.socketManager.Open();
 
@@ -256,7 +265,7 @@ public class CharacterSelectionScene : MonoBehaviour
     private void Connected(Socket socket, Packet packet, params object[] args)
     {
         //solicito la informacion de los personajes
-        socketManager.Socket.Emit("GetCharacters", "");
+        socketManager.Socket.Emit("GetCharacters", PlayerPrefs.GetString("email"));
     }
 
     //funcion que se ejecuta cuando el servidor envia la informacion de los personajes
@@ -310,5 +319,39 @@ public class CharacterSelectionScene : MonoBehaviour
                 this.socketManager.Socket.Disconnect();
             }
         }
+    }
+
+    //funcion que se ejecuta cuando el servidor me envia al intro
+    private void BackToIntro(Socket socket, Packet packet, params object[] args)
+    {
+        //elimino pantalla de carga
+        Loading(false, "");
+        string message = args[0] as string;
+        //si no trae ningun mensaje
+        if (message.Equals(""))
+        {
+            this.socketManager.Close();
+            SceneManager.LoadScene("Intro");
+        }
+        //si trae mensaje
+        else
+        {
+            Message(message, 20, 5f, delegate { this.socketManager.Close(); SceneManager.LoadScene("Intro"); });
+        }
+        
+    }
+
+    //funcion que se ejecuta cuando el servidor me envia un mensaje para mostrar
+    private void ShowMessage(Socket socket, Packet packet, params object[] args)
+    {
+        string message = args[0] as string;
+        Message(message, 20, 4f, delegate {});
+    }
+
+    //funcion que se ejecuta cuando el servidor me pide que espere a mi oponente
+    private void Wait(Socket socket, Packet packet, params object[] args)
+    {
+        string message = args[0] as string;
+        Loading(true, message);
     }
 }

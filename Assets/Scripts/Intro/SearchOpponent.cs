@@ -57,4 +57,5 @@ public class SearchOpponent : MonoBehaviour
         this.showingLogo = false;
         this.canvas.alpha = 1;
     }
+
 }

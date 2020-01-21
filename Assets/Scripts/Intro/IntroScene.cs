@@ -91,11 +91,7 @@ public class IntroScene : MonoBehaviour
     private void OpponentFound(Socket socket, Packet packet, params object[] args)
     {
         Loading(false, "");
-        Message("Opponent Found!", 20, 1f, delegate {});
-        this.socketManager.Close();
-        //Finalizamos el audio
-        ClickSound.StopSoundBySource("Audio Source Intro");
-        SceneManager.LoadScene("CharacterSelection");
+        Message("Opponent Found!", 20, 1f, delegate { this.socketManager.Close(); ClickSound.StopSoundBySource("Audio Source Intro"); SceneManager.LoadScene("CharacterSelection"); });
     }
 
     //funcion que activa el panel de carga
