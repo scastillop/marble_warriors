@@ -955,6 +955,7 @@
     <Compile Include="Assets\Scripts\Game\Skill.cs" />
     <Compile Include="Assets\Scripts\Game\Stat.cs" />
     <Compile Include="Assets\Scripts\Game\Team.cs" />
+    <Compile Include="Assets\Scripts\Intro\ExitIntro.cs" />
     <Compile Include="Assets\Scripts\Intro\IntroScene.cs" />
     <Compile Include="Assets\Scripts\Intro\LogoIntro.cs" />
     <Compile Include="Assets\Scripts\Intro\SearchOpponent.cs" />

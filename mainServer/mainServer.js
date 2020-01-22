@@ -40,7 +40,7 @@ server.listen(port, function() {
 var modularServers = {};
 
 //aqui se guardaran las partidas en curso
-var games = [];
+var games = {};
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
 var players = {};
@@ -52,7 +52,7 @@ var  validateInterval= 10000;
 var thresholdAlert = 50000;
 
 //esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
-var thresholdkick = 60001;
+var thresholdkick = 70001;
 
 
 io.on("connection",function(socket){
@@ -185,10 +185,12 @@ io.on("connection",function(socket){
 					turn: 0,
 					players: gamePlayers,
 				};
+				//creo un identificador unico para el juego
+				var id =""+(Math.random().toString(36).substr(2, 9));
 				//guardo el juego
-				games.push(game);
+				games[id]=game;
 				//guardo al jugador
-				players[email].gameIndex = games.indexOf(game);
+				players[email].gameIndex = id;
 				players[email].playerIndex = 0;
 			}
 		}
@@ -300,7 +302,7 @@ io.on("connection",function(socket){
 				delete players[games[foundIndex].players[playerKey].email];
 			}
 			//elimino el juego de mi lista
-			games.splice(foundIndex, 1);
+			delete games[foundIndex];
 		}
 	});
 
@@ -316,7 +318,7 @@ io.on("connection",function(socket){
 					delete players[games[gameIndex].players[playerKey].email];
 				}
 				//elimino el juego de mi lista
-				games.splice(gameIndex, 1);
+				delete games[gameIndex];
 			}
 		}
 
@@ -357,9 +359,9 @@ setInterval(function(){
 					}
 					delete players[games[gameIndex].players[playerKey2].email];
 				}
-				games.splice(gameIndex, 1);
-			//si no, valido si supero el umbral para alertarlo
-			}else if(((new Date())- players[playerKey].lastTime)>thresholdAlert){
+				delete games[gameIndex];
+			//si no, valido si superó el umbral para alertarlo
+			}else if(((new Date())- players[playerKey].lastTime)>thresholdAlert&&games[players[playerKey].gameIndex]){
 				//si lo supero busco al jugador en el juego
 				for (var playerKey2 in games[players[playerKey].gameIndex].players){
 					if(players[playerKey]&&games[players[playerKey].gameIndex].players[playerKey2].email == playerKey){

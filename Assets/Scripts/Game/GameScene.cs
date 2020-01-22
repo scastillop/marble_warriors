@@ -114,6 +114,8 @@ public class GameScene : MonoBehaviour
         this.socketManager.Socket.On("Defeat", Defeat);
         //cuando el servidor me manda al intro
         this.socketManager.Socket.On("BackToIntro", BackToIntro);
+        //cuando el servidor me manda a mostrar un mensaje
+        this.socketManager.Socket.On("ShowMessage", ShowMessage);
         //cuando el servidor responde a las acciones que le envié
         this.socketManager.Socket.On("ActionsResponse", ActionsResponse);
         //cuando la conexion con el servidor falla
@@ -984,4 +986,10 @@ public class GameScene : MonoBehaviour
         socketManager.Socket.Emit("ReadyToBegin", PlayerPrefs.GetString("email"));
     }
 
+    //funcion que se ejecuta cuando el servidor me envia un mensaje para mostrar
+    private void ShowMessage(Socket socket, Packet packet, params object[] args)
+    {
+        string message = args[0] as string;
+        Message(message, 20, 4f, delegate { });
+    }
 }

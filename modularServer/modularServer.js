@@ -37,13 +37,22 @@ var myPort=9010;
 var characters = [];
 
 //aqui se guardaran las partidas en curso
-var games = [];
+var games = {};
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
 var players = {};
 
 // instancio conexion con la base de datos
 var mysqlConnection = require('../databaseConnection/mysqlConnector');
+
+//esta variable indica cada cuantos milisegundos se deben validar que los usuarios realizen acciones
+var  validateInterval = 10000;
+
+//esta variable indica a los cuantos milisegundos se le debe informar al jugador que debe actuar
+var thresholdAlert = 50000;
+
+//esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
+var thresholdkick = 70001;
 
 //rescato los datos de los personajes desde la db
 console.log(new Date(Date.now()).toLocaleString()+' Getting characters from data base...');
@@ -79,7 +88,12 @@ mysqlConnection.FindAllCharactersWithDetails(function (result) {
 
 		//cuando el servidor principal me envia un juego
 		socketClient.on('SendGame', (data) => {
-			games.push(data);
+			//seteo el tiempo de de inicio de los jugadores
+			for (var playerKey in data.players){
+				data.players[playerKey].lastTime = new Date();
+			}
+			//guardo el juego
+			games[data.id]=data;
 			ReportGamesCount();
 		});
 
@@ -241,6 +255,8 @@ ioServer.on("connection",function(socket){
 
 	//recibe las acciones enviadas por un cliente
 	socket.on("Actions",function(actions){
+		//seteo el tiempo de la ultima accion
+		games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].lastTime = new Date();
 		//guardo las acciones
 		games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].actions=actions;
 		//actualizo el estado del jugador
@@ -491,7 +507,7 @@ ioServer.on("connection",function(socket){
 			//guardo los resultados en db
 			mysqlConnection.SaveGameResults(winner, loser);
 			//elimino el juego de mi lista
-			games.splice(players[socket.id].gameIndex, 1);
+			delete games[players[socket.id].gameIndex];
 			//informo la cantidad de juegos que administro
 			ReportGamesCount();
 		}
@@ -501,8 +517,12 @@ ioServer.on("connection",function(socket){
 	socket.on('UpdateCharacters',function(){
 		//verifico que el juego exista
 		if(games[players[socket.id].gameIndex]){
+			//seteo la ultima hora en que realice una accion
+			games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].lastTime = new Date();
+			//actualizo los estados por turno
 			UpdateTurnChanges(games[players[socket.id].gameIndex]);
-			GetAllCharacters(socket, "CharactersUpdate");	
+			//actualizo los personajes
+			GetAllCharacters(socket, "CharactersUpdate");
 		}
 	});
 	//si un cliente se desconecta
@@ -720,7 +740,7 @@ function GetAllCharacters(socket, method){
 				//si todos los personajes del jugador estan muertos el juego termino
 				if(alldeath){
 					endGame = true;
-					//informo al servidor prubcipal
+					//informo al servidor principal
 					socketClient.emit('EndGame', games[players[socket.id].gameIndex].id);
 					//informo a los jugadores quien perdio y quien gano
 					for(var playerKey2 in games[players[socket.id].gameIndex].players){
@@ -736,7 +756,7 @@ function GetAllCharacters(socket, method){
 					mysqlConnection.SaveGameResults(winner, loser);
 					//elimino el juego de mi lista
 					if(players[socket.id]){
-						games.splice(players[socket.id].gameIndex, 1);
+						delete games[players[socket.id].gameIndex];
 						//informo la cantidad de juegos que administro
 						ReportGamesCount();	
 					}
@@ -770,6 +790,86 @@ function GetAllCharacters(socket, method){
 				}
 			}
 		}
-	}
-	
+	}	
 }
+
+//funcion que verifica cuando los jugadores tardan demasiado en realizar una accion
+setInterval(function(){
+	//variable donde guardare a los que deben ser eliminados
+	var toDelete=[];
+	//recorro los juegos
+	for (var gameIndex in games){
+		//recorro los jugadores
+		for (var playerKey in games[gameIndex].players){
+			//si el jugador tiene seteado la ultima vez que inicio realizo una accion
+			if(games[gameIndex].players[playerKey].lastTime){
+				//si el jugador ya supero el umbral determinado para desconectarlo
+				if(((new Date())- games[gameIndex].players[playerKey].lastTime)>thresholdkick){
+					var index = {
+						gameIndex: gameIndex,
+						playerKey: playerKey,
+						kick: true 
+					}
+					toDelete.push(index);
+				}
+				//si el jugador super el umbral determinado para alertarlo 
+				else if(((new Date())- games[gameIndex].players[playerKey].lastTime)>thresholdAlert){
+					var index = {
+						gameIndex: gameIndex,
+						playerKey: playerKey,
+						kick: false 
+					}
+					toDelete.push(index);
+				}
+			}
+		}
+	}
+	//recorro todos los que debo eliminar (o alertar)
+	for (var deleteIndex in toDelete){
+		//verifico si no he eliminado el juego
+		if(games[toDelete[deleteIndex].gameIndex]){
+			//recorro los jugadores del juego
+			for (var playerKey in games[toDelete[deleteIndex].gameIndex].players){
+				//si el jugador es el que cometio la ifraccion
+				if(playerKey==toDelete[deleteIndex].playerKey){
+					//si es un kick
+					if(toDelete[deleteIndex].kick){
+						//informo en el servidor
+						console.log(new Date(Date.now()).toLocaleString()+" Client ("+games[toDelete[deleteIndex].gameIndex].players[playerKey].email+") kicked from "+games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.request.connection.remoteAddress);						
+						//boto al jugador
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("Defeat", "(by time over)");
+						//verifico que exista el jugador en mi lista
+						if(players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id]){
+							//elimino al jugador de mi lista
+							delete players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id];
+						}
+					}
+					//si no, es solo una alerta
+					else{
+						//alerto al jugador
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("ShowMessage", "Hurry up!");
+					}
+				}
+				//si no, es el otro jugador
+				else{
+					//verifico que sea un kick
+					if(toDelete[deleteIndex].kick){
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("Victory", "(The opponent withdrew!)");
+						//verifico que exista el jugador en mi lista
+						if(players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id]){
+							//elimino al jugador de mi lista
+							delete players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id];
+						}
+					}
+				}
+			}
+			//si es kick
+			if(toDelete[deleteIndex].kick){
+				//informo al servidor principal que eliminare el juego
+				socketClient.emit('EndGame', toDelete[deleteIndex].gameIndex);
+				//elimino el juego
+				delete games[toDelete[deleteIndex].gameIndex];
+			}
+		}
+	}
+}, validateInterval);
