@@ -240,8 +240,18 @@ public class GameScene : MonoBehaviour
                     actButton.GetComponent<ButtonAct>().character = button.GetComponent<ButtonChar>().character;
                     actButton.GetComponent<ButtonAct>().skill = skill;
                     actButton.GetComponent<ButtonAct>().buttonChar = button;
-                    //hago el boton clickeable
-                    actButton.GetComponent<CanvasGroup>().interactable = true;
+                    //hago el boton clickeable si el costo no supera el mana actual
+                    Debug.Log(skill.cost + "Costo Skill");
+                    Debug.Log(button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.mp + "Actual sp");
+                    if (skill.cost <= button.GetComponent<ButtonChar>().character.GetComponent<Character>().actualStat.mp)
+                    {
+                        actButton.GetComponent<CanvasGroup>().interactable = true;
+                        actButton.GetComponent<CanvasGroup>().blocksRaycasts = true;
+                    }
+                    else {
+                        actButton.GetComponent<CanvasGroup>().interactable = false;
+                        actButton.GetComponent<CanvasGroup>().blocksRaycasts = false;
+                    }
                 }
                 j++;
             }

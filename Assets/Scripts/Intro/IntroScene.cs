@@ -23,11 +23,10 @@ public class IntroScene : MonoBehaviour
     {
         ClickSound.PlaySoundBySource("Audio Source Intro");
         //seteo variables de prueba
-        if (PlayerPrefs.GetString("email", "").Equals(""))
-        {
-            PlayerPrefs.SetString("email", "seba@qwe.cl");
-            PlayerPrefs.SetString("name", "qwe1");
-        }
+
+        PlayerPrefs.SetString("email", "jota@qwe.cl");
+        PlayerPrefs.SetString("name", "jota");
+
         //seteo direccion del servidor principal
         PlayerPrefs.SetString("mainServerAddress", "http://fex02.ddns.net:9000/socket.io/");
 

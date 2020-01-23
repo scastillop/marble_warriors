@@ -97,6 +97,8 @@ public class CharacterSelectionScene : MonoBehaviour
         //oculto el listado de personajes
         UpdateMenu();
 
+        //Informo al usuario que comience armando su equipo
+        Message("Build your team!", 20, 2f, delegate { });
     }
 
     // Update is called once per frame
