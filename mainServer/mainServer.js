@@ -137,36 +137,51 @@ io.on("connection",function(socket){
 		if(!found){
 			//busco si existe algun juego que esté esperando un jugador
 			var opponentFound = false;
+			var registered = false;
+			var gamesForDelete = [];
 			for(var key in games){
 				//busco juegos que tengan un solo jugador
-				if(games[key].players.length==1){
-					//si lo tiene agrego al jugador
-					var player2 = {
-						id: players[email].id,
-						status: 'connected',
-						socket: socket,
-						email: email,
-						name: players[email].name,
-						index: 1
-					};
-					games[key].players.push(player2);
-					//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-					players[email].gameIndex = key;
-					players[email].playerIndex = 1;
-					//procedo a generar un identificador unico para el juego
-					var id="";
-					//informo a los jugadores que ya se encontro su oponente
-					for(var playerKey in games[key].players){
-						games[key].players[playerKey].status="selectingChars";
-						players[games[key].players[playerKey].email].lastTime = new Date();
-						games[key].players[playerKey].socket.emit("OpponentFound",key);
-						//agrego informacion al id
-						id = id + games[key].players[playerKey].socket.id;
+				if(games[key].players.length==1&&!registered){
+					//si el jugador esta conectado
+					if(games[key].players[0].socket.connected){
+						//si lo tiene agrego al jugador
+						registered = true;
+						var player2 = {
+							id: players[email].id,
+							status: 'connected',
+							socket: socket,
+							email: email,
+							name: players[email].name,
+							index: 1
+						};
+						games[key].players.push(player2);
+						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
+						players[email].gameIndex = key;
+						players[email].playerIndex = 1;
+						players[email].socket = socket;
+						//procedo a generar un identificador unico para el juego
+						var id="";
+						//informo a los jugadores que ya se encontro su oponente
+						for(var playerKey in games[key].players){
+							games[key].players[playerKey].status="selectingChars";
+							players[games[key].players[playerKey].email].lastTime = new Date();
+							games[key].players[playerKey].socket.emit("OpponentFound",key);
+							//agrego informacion al id
+							id = id + games[key].players[playerKey].socket.id;
+						}
+						games[key].id = id;
+						opponentFound = true;
 					}
-					games[key].id = id;
-					opponentFound = true;
+					//si no esta conectado
+					else{
+						delete players[games[key].players[0].email];
+						gamesForDelete.push(key);
+					}
 				}
 			};
+			for (var key in gamesForDelete){
+				delete games[gamesForDelete[key]];
+			}
 			//si no encuentro juegos con un solo jugador creo un nuevo juego para el jugador
 			if(!opponentFound){
 				//creo al jugador
@@ -192,6 +207,7 @@ io.on("connection",function(socket){
 				//guardo al jugador
 				players[email].gameIndex = id;
 				players[email].playerIndex = 0;
+				players[email].socket = socket;
 			}
 		}
 	});
