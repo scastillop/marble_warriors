@@ -49,10 +49,10 @@ var players = {};
 var  validateInterval= 10000;
 
 //esta variable indica a los cuantos milisegundos se le debe informar al jugador que debe actuar
-var thresholdAlert = 50000;
+var thresholdAlert = 90000;
 
 //esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
-var thresholdkick = 70001;
+var thresholdkick = 100001;
 
 
 io.on("connection",function(socket){

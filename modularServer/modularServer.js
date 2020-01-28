@@ -49,10 +49,10 @@ var mysqlConnection = require('../databaseConnection/mysqlConnector');
 var  validateInterval = 10000;
 
 //esta variable indica a los cuantos milisegundos se le debe informar al jugador que debe actuar
-var thresholdAlert = 70000;
+var thresholdAlert = 90000;
 
 //esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
-var thresholdkick = 90001;
+var thresholdkick = 100001;
 
 //rescato los datos de los personajes desde la db
 console.log(new Date(Date.now()).toLocaleString()+' Getting characters from data base...');
@@ -281,6 +281,8 @@ ioServer.on("connection",function(socket){
 				*/
 				//seteo la respuesta de las acciones (posteriormente esto se enviara a cada juagador)
 				games[players[socket.id].gameIndex].players[playerKey].actionsResponse = [];
+				//seteo el tiempo de la ultima accion
+				games[players[socket.id].gameIndex].players[playerKey].lastTime = new Date();
 			}
 			//si no se ha definido de quien es el turno de realizar una accion
 			if(!games[players[socket.id].gameIndex].actionTurn){
