@@ -57,3 +57,12 @@ sysinfo.txt
 
 # Crashlytics generated file
 crashlytics-build.properties
+
+# Ignore google libraries changes
+Assets/Firebase/*
+Assets/PlayServicesResolver/*
+Assets/PlayServicesResolver.meta
+Assets/Firebase.meta
+obj/Debug/*
+Assets/Plugins/Android/*
+

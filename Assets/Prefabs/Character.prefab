@@ -1974,9 +1974,9 @@ GameObject:
   m_Component:
   - component: {fileID: 6216438986168620357}
   - component: {fileID: 6216438986176379623}
-  - component: {fileID: 5295319026626917727}
   - component: {fileID: 3135384006895872071}
   - component: {fileID: 4825741719218868374}
+  - component: {fileID: 3725081603199331793}
   m_Layer: 0
   m_Name: Character
   m_TagString: Untagged
@@ -2012,8 +2012,8 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6216438986169108837}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: edcf7e87582bca647bcb9edb24e0f73c, type: 3}
-  m_Controller: {fileID: 0}
+  m_Avatar: {fileID: 9000000, guid: 2725e1feaac07604cbe6e59d813c1f23, type: 2}
+  m_Controller: {fileID: 9100000, guid: c464ca0ec74b39e428a9cf7fe14be453, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -2022,22 +2022,6 @@ Animator:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorControllerStateOnDisable: 0
---- !u!114 &5295319026626917727
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6216438986169108837}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 438f44578e4ccc14bb2b09bcf54125cd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  id: 0
-  characterName: 
-  position: 0
-  model: 0
 --- !u!136 &3135384006895872071
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -2089,6 +2073,35 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+--- !u!114 &3725081603199331793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6216438986169108837}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 438f44578e4ccc14bb2b09bcf54125cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  id: 0
+  characterName: 
+  position: 0
+  model: 0
+  sliderPrefab: {fileID: 9137335791002223607, guid: d0896f7f5656ddb44901c6512937326a,
+    type: 3}
+  effectsPrefab:
+  - {fileID: 5275380225641030067, guid: ffcbdc5d685e5c042a5c2921b6c868ef, type: 3}
+  - {fileID: 5901116264683318874, guid: 92535c7c4eb9ca84aa2f0bc2e7bfdb9c, type: 3}
+  - {fileID: 1567538893551488169, guid: e652c77f4aeeb8e46b65727322ec3de0, type: 3}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
 --- !u!1 &6216438986169108839
 GameObject:
   m_ObjectHideFlags: 0
