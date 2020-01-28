@@ -37,13 +37,22 @@ var myPort=9010;
 var characters = [];
 
 //aqui se guardaran las partidas en curso
-var games = [];
+var games = {};
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
 var players = {};
 
 // instancio conexion con la base de datos
 var mysqlConnection = require('../databaseConnection/mysqlConnector');
+
+//esta variable indica cada cuantos milisegundos se deben validar que los usuarios realizen acciones
+var  validateInterval = 10000;
+
+//esta variable indica a los cuantos milisegundos se le debe informar al jugador que debe actuar
+var thresholdAlert = 90000;
+
+//esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
+var thresholdkick = 100001;
 
 //rescato los datos de los personajes desde la db
 console.log(new Date(Date.now()).toLocaleString()+' Getting characters from data base...');
@@ -79,7 +88,12 @@ mysqlConnection.FindAllCharactersWithDetails(function (result) {
 
 		//cuando el servidor principal me envia un juego
 		socketClient.on('SendGame', (data) => {
-			games.push(data);
+			//seteo el tiempo de de inicio de los jugadores
+			for (var playerKey in data.players){
+				data.players[playerKey].lastTime = new Date();
+			}
+			//guardo el juego
+			games[data.id]=data;
 			ReportGamesCount();
 		});
 
@@ -241,6 +255,8 @@ ioServer.on("connection",function(socket){
 
 	//recibe las acciones enviadas por un cliente
 	socket.on("Actions",function(actions){
+		//seteo el tiempo de la ultima accion
+		games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].lastTime = new Date();
 		//guardo las acciones
 		games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].actions=actions;
 		//actualizo el estado del jugador
@@ -265,6 +281,8 @@ ioServer.on("connection",function(socket){
 				*/
 				//seteo la respuesta de las acciones (posteriormente esto se enviara a cada juagador)
 				games[players[socket.id].gameIndex].players[playerKey].actionsResponse = [];
+				//seteo el tiempo de la ultima accion
+				games[players[socket.id].gameIndex].players[playerKey].lastTime = new Date();
 			}
 			//si no se ha definido de quien es el turno de realizar una accion
 			if(!games[players[socket.id].gameIndex].actionTurn){
@@ -289,159 +307,160 @@ ioServer.on("connection",function(socket){
 				if(games[gameIndex].players[playerOnTurn].actions[i]){
 					//guardo la accion para utilizarla mas adelante
 					var action = games[gameIndex].players[playerOnTurn].actions[i];
-					//reduzco el mana del que realizo la accion
-					games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp=games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp-games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].cost;
-					//guardo los datos de la habilidad (para ser usados en el cliente)
-					action.name = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].name;
-					action.animation = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].animation;
-					action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
-					action.target = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].target;
-					action.effectIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].effectIndex;
-					action.projectileIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].projectileIndex;
+					//valido que el owner tenga mana y vida
+					if(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp>=games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].cost&&games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.hp>0){
+						//reduzco el mana del que realizo la accion
+						games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp=games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat.mp-games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].cost;
+						//guardo los datos de la habilidad (para ser usados en el cliente)
+						action.name = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].name;
+						action.animation = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].animation;
+						action.distance = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].distance;
+						action.target = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].target;
+						action.effectIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].effectIndex;
+						action.projectileIndex = games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill].projectileIndex;
 
-					//seteo el o los objetivos
-					var targets = []
-					//si el objetivo es el propio personaje que usa la habilidad
-					if(action.target=="own"){
-						targets.push(action.owner);
-					//si el objetivo es el team completo de quien usa la habilidad
-					}else if(action.target=="ownTeam"){
-						targets.push(0);
-						targets.push(1);
-						targets.push(2);
-						targets.push(3);
-						targets.push(4);
-					//si el objetivo es un personaje unico y a eleccion
-					}else if(action.target=="single"){
-						targets.push(action.affected);
-					//si el objetivo es un equipo completo a eleccion
-					}else if(action.target=="team"){
-						//si el afectado es mayor o igual a 5 es del equipo enemigo
-						if(action.affected>=5){
-							targets.push(5);
-							targets.push(6);
-							targets.push(7);
-							targets.push(8);
-							targets.push(9);
-						//si no es el equipo aliado
-						}else{
+						//seteo el o los objetivos
+						var targets = []
+						//si el objetivo es el propio personaje que usa la habilidad
+						if(action.target=="own"){
+							targets.push(action.owner);
+						//si el objetivo es el team completo de quien usa la habilidad
+						}else if(action.target=="ownTeam"){
 							targets.push(0);
 							targets.push(1);
 							targets.push(2);
 							targets.push(3);
 							targets.push(4);
-						}
-					//si el afectado es un grupo maximo de 3
-					}else if(action.target=="multi3"){
-						//agrego al propio afectado
-						targets.push(action.affected);
-						//si el afectado es mayor o igual a 5 es del equipo enemigo
-						if(action.affected>=5){
-							//agrego a sus compañeros
-							if(action.affected-1>=5){
-								targets.push(action.affected-1);
-							}
-							if(action.affected+1<=9){
-								targets.push(action.affected+1);
-							}
-						//si no es el equipo aliado
-						}else{
-							//agrego a sus compañeros
-							if(action.affected-1>=0){
-								targets.push(action.affected-1);
-							}
-							if(action.affected+1<=4){
-								targets.push(action.affected+1);
-							}
-						}
-					}
-					//verifico si se puede realizar la accion
-					var canDo = false;
-					if(action.affected>=5){
-						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5])){
-							canDo = true;
-						}
-					}else{
-						if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
-							canDo = true;
-						}
-					}
-					//si es que se puede realizar la accion
-					if(canDo){
-						//genero la accion de respuesta (datos que van a los jugadores)
-						var actionResponse = action;
-						//genero las variables para los objetivos
-						var finalTargets =  [];
-						var rivalTargets =  [];
-						//recorro los objetivos
-						for(var targetKey in targets){
-							//si el afectado es del equipo enemigo
-							if(targets[targetKey]>=5){
-								//verifico si cumple con los requisitos
-								if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5])){
-									//si cumple las condiciones realizo los cambios en el afectado
-									games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat, games[gameIndex].turn, games[gameIndex].players[playerRival].characters[targets[targetKey]-5]);
-										
-									//guardo el nuevo objetivo
-									var target = {};
-									//primero le seteo los nuevos stats del afectado
-									target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat));
-									target.affected = targets[targetKey];
-									finalTargets.push(target);
-
-									//ahora para el rival
-									var rivalTarget = JSON.parse(JSON.stringify(target));
-									rivalTarget.affected = targets[targetKey]-5;
-									rivalTargets.push(rivalTarget);
-
-								}	
+						//si el objetivo es un personaje unico y a eleccion
+						}else if(action.target=="single"){
+							targets.push(action.affected);
+						//si el objetivo es un equipo completo a eleccion
+						}else if(action.target=="team"){
+							//si el afectado es mayor o igual a 5 es del equipo enemigo
+							if(action.affected>=5){
+								targets.push(5);
+								targets.push(6);
+								targets.push(7);
+								targets.push(8);
+								targets.push(9);
+							//si no es el equipo aliado
 							}else{
-								//si el afectado es del mismo equipo
-								//verifico si cumple con los requisitos
-								if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]])){
-									//si cumple las condiciones realizo los cambios en el afectado
-									games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].initialStat, games[gameIndex].turn, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]]);
-
-									//guardo el nuevo objetivo
-									var target = {};
-									//primero le seteo los nuevos stats del afectado
-									target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat));
-									target.affected = targets[targetKey];
-									finalTargets.push(target);
-
-									//ahora para el rival
-									var rivalTarget = JSON.parse(JSON.stringify(target));
-									rivalTarget.affected = targets[targetKey]+5;
-									rivalTargets.push(rivalTarget);
+								targets.push(0);
+								targets.push(1);
+								targets.push(2);
+								targets.push(3);
+								targets.push(4);
+							}
+						//si el afectado es un grupo maximo de 3
+						}else if(action.target=="multi3"){
+							//agrego al propio afectado
+							targets.push(action.affected);
+							//si el afectado es mayor o igual a 5 es del equipo enemigo
+							if(action.affected>=5){
+								//agrego a sus compañeros
+								if(action.affected-1>=5){
+									targets.push(action.affected-1);
+								}
+								if(action.affected+1<=9){
+									targets.push(action.affected+1);
+								}
+							//si no es el equipo aliado
+							}else{
+								//agrego a sus compañeros
+								if(action.affected-1>=0){
+									targets.push(action.affected-1);
+								}
+								if(action.affected+1<=4){
+									targets.push(action.affected+1);
 								}
 							}
 						}
-						//seteo el estado del owner
-						actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
-						//seteo los objetivos
-						actionResponse.targets = finalTargets;
-						//guardo la accion en la respuesta para el jugador en turno
-						games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+						//verifico si se puede realizar la accion
+						var canDo = false;
 						if(action.affected>=5){
-							//actualizo los ids de los personajes pensando en el rival
-							var rivalResponse = Object.assign({} , actionResponse);
-							rivalResponse.owner = actionResponse.owner+5;
-							rivalResponse.affected = actionResponse.affected-5;
-							rivalResponse.targets = rivalTargets;
-							//guardo la accion en la respuesta para el rival
-							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
+							if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[action.affected-5])){
+								canDo = true;
+							}
 						}else{
-							//actualizo los ids de los personajes pensando en el rival
-							var rivalResponse = Object.assign({} , actionResponse);
-							rivalResponse.owner = actionResponse.owner+5;
-							rivalResponse.affected = actionResponse.affected+5;
-							rivalResponse.targets = rivalTargets;
-							//guardo la accion en la respuesta para el rival
-							games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
+							if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[action.affected])){
+								canDo = true;
+							}
+						}
+						//si es que se puede realizar la accion
+						if(canDo){
+							//genero la accion de respuesta (datos que van a los jugadores)
+							var actionResponse = action;
+							//genero las variables para los objetivos
+							var finalTargets =  [];
+							var rivalTargets =  [];
+							//recorro los objetivos
+							for(var targetKey in targets){
+								//si el afectado es del equipo enemigo
+								if(targets[targetKey]>=5){
+									//verifico si cumple con los requisitos
+									if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5])){
+										//si cumple las condiciones realizo los cambios en el afectado
+										games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat, games[players[socket.id].gameIndex].players[playerRival].characters[games[players[socket.id].gameIndex].players[playerOnTurn].actions[i].affected-5].initialStat, games[gameIndex].turn, games[gameIndex].players[playerRival].characters[targets[targetKey]-5]);
+											
+										//guardo el nuevo objetivo
+										var target = {};
+										//primero le seteo los nuevos stats del afectado
+										target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerRival].characters[targets[targetKey]-5].actualStat));
+										target.affected = targets[targetKey];
+										finalTargets.push(target);
+
+										//ahora para el rival
+										var rivalTarget = JSON.parse(JSON.stringify(target));
+										rivalTarget.affected = targets[targetKey]-5;
+										rivalTargets.push(rivalTarget);
+
+									}	
+								}else{
+									//si el afectado es del mismo equipo
+									//verifico si cumple con los requisitos
+									if(CanDo(games[gameIndex].players[playerOnTurn].characters[action.owner], games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]])){
+										//si cumple las condiciones realizo los cambios en el afectado
+										games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat = ChangeStat(games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat, games[gameIndex].players[playerOnTurn].characters[action.owner].skills[action.skill], games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].initialStat, games[gameIndex].turn, games[gameIndex].players[playerOnTurn].characters[targets[targetKey]]);
+
+										//guardo el nuevo objetivo
+										var target = {};
+										//primero le seteo los nuevos stats del afectado
+										target.affectedStat = JSON.parse(JSON.stringify(games[gameIndex].players[playerOnTurn].characters[targets[targetKey]].actualStat));
+										target.affected = targets[targetKey];
+										finalTargets.push(target);
+
+										//ahora para el rival
+										var rivalTarget = JSON.parse(JSON.stringify(target));
+										rivalTarget.affected = targets[targetKey]+5;
+										rivalTargets.push(rivalTarget);
+									}
+								}
+							}
+							//seteo el estado del owner
+							actionResponse.ownerStat = Object.assign({} , games[gameIndex].players[playerOnTurn].characters[action.owner].actualStat);
+							//seteo los objetivos
+							actionResponse.targets = finalTargets;
+							//guardo la accion en la respuesta para el jugador en turno
+							games[gameIndex].players[playerOnTurn].actionsResponse.push(actionResponse);
+							if(action.affected>=5){
+								//actualizo los ids de los personajes pensando en el rival
+								var rivalResponse = Object.assign({} , actionResponse);
+								rivalResponse.owner = actionResponse.owner+5;
+								rivalResponse.affected = actionResponse.affected-5;
+								rivalResponse.targets = rivalTargets;
+								//guardo la accion en la respuesta para el rival
+								games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
+							}else{
+								//actualizo los ids de los personajes pensando en el rival
+								var rivalResponse = Object.assign({} , actionResponse);
+								rivalResponse.owner = actionResponse.owner+5;
+								rivalResponse.affected = actionResponse.affected+5;
+								rivalResponse.targets = rivalTargets;
+								//guardo la accion en la respuesta para el rival
+								games[gameIndex].players[playerRival].actionsResponse.push(rivalResponse);
+							}
 						}
 					}
-
-					
 				}
 				//cambio al jugador que ahora tiene el turno de realizar una accion
 				games[players[socket.id].gameIndex].actionTurn = playerRival;
@@ -491,7 +510,7 @@ ioServer.on("connection",function(socket){
 			//guardo los resultados en db
 			mysqlConnection.SaveGameResults(winner, loser);
 			//elimino el juego de mi lista
-			games.splice(players[socket.id].gameIndex, 1);
+			delete games[players[socket.id].gameIndex];
 			//informo la cantidad de juegos que administro
 			ReportGamesCount();
 		}
@@ -501,8 +520,12 @@ ioServer.on("connection",function(socket){
 	socket.on('UpdateCharacters',function(){
 		//verifico que el juego exista
 		if(games[players[socket.id].gameIndex]){
+			//seteo la ultima hora en que realice una accion
+			games[players[socket.id].gameIndex].players[players[socket.id].playerIndex].lastTime = new Date();
+			//actualizo los estados por turno
 			UpdateTurnChanges(games[players[socket.id].gameIndex]);
-			GetAllCharacters(socket, "CharactersUpdate");	
+			//actualizo los personajes
+			GetAllCharacters(socket, "CharactersUpdate");
 		}
 	});
 	//si un cliente se desconecta
@@ -675,7 +698,7 @@ function CanDo(owner, skill, affected){
 	//el owner debe estar vivo
 	//el owner debe tener mana suficiente
 	//el affected debe estar vivo
-	if(owner.actualStat.hp>0&&owner.actualStat.mp>=skill.cost&&affected.actualStat.hp>0){
+	if(affected.actualStat.hp>0){
 		return true;
 	}else{
 		return false;
@@ -720,7 +743,7 @@ function GetAllCharacters(socket, method){
 				//si todos los personajes del jugador estan muertos el juego termino
 				if(alldeath){
 					endGame = true;
-					//informo al servidor prubcipal
+					//informo al servidor principal
 					socketClient.emit('EndGame', games[players[socket.id].gameIndex].id);
 					//informo a los jugadores quien perdio y quien gano
 					for(var playerKey2 in games[players[socket.id].gameIndex].players){
@@ -736,7 +759,7 @@ function GetAllCharacters(socket, method){
 					mysqlConnection.SaveGameResults(winner, loser);
 					//elimino el juego de mi lista
 					if(players[socket.id]){
-						games.splice(players[socket.id].gameIndex, 1);
+						delete games[players[socket.id].gameIndex];
 						//informo la cantidad de juegos que administro
 						ReportGamesCount();	
 					}
@@ -770,6 +793,86 @@ function GetAllCharacters(socket, method){
 				}
 			}
 		}
-	}
-	
+	}	
 }
+
+//funcion que verifica cuando los jugadores tardan demasiado en realizar una accion
+setInterval(function(){
+	//variable donde guardare a los que deben ser eliminados
+	var toDelete=[];
+	//recorro los juegos
+	for (var gameIndex in games){
+		//recorro los jugadores
+		for (var playerKey in games[gameIndex].players){
+			//si el jugador tiene seteado la ultima vez que inicio realizo una accion
+			if(games[gameIndex].players[playerKey].lastTime){
+				//si el jugador ya supero el umbral determinado para desconectarlo
+				if(((new Date())- games[gameIndex].players[playerKey].lastTime)>thresholdkick){
+					var index = {
+						gameIndex: gameIndex,
+						playerKey: playerKey,
+						kick: true 
+					}
+					toDelete.push(index);
+				}
+				//si el jugador super el umbral determinado para alertarlo 
+				else if(((new Date())- games[gameIndex].players[playerKey].lastTime)>thresholdAlert){
+					var index = {
+						gameIndex: gameIndex,
+						playerKey: playerKey,
+						kick: false 
+					}
+					toDelete.push(index);
+				}
+			}
+		}
+	}
+	//recorro todos los que debo eliminar (o alertar)
+	for (var deleteIndex in toDelete){
+		//verifico si no he eliminado el juego
+		if(games[toDelete[deleteIndex].gameIndex]){
+			//recorro los jugadores del juego
+			for (var playerKey in games[toDelete[deleteIndex].gameIndex].players){
+				//si el jugador es el que cometio la ifraccion
+				if(playerKey==toDelete[deleteIndex].playerKey){
+					//si es un kick
+					if(toDelete[deleteIndex].kick){
+						//informo en el servidor
+						console.log(new Date(Date.now()).toLocaleString()+" Client ("+games[toDelete[deleteIndex].gameIndex].players[playerKey].email+") kicked from "+games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.request.connection.remoteAddress);						
+						//boto al jugador
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("Defeat", "(by time over)");
+						//verifico que exista el jugador en mi lista
+						if(players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id]){
+							//elimino al jugador de mi lista
+							delete players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id];
+						}
+					}
+					//si no, es solo una alerta
+					else{
+						//alerto al jugador
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("ShowMessage", "Hurry up!");
+					}
+				}
+				//si no, es el otro jugador
+				else{
+					//verifico que sea un kick
+					if(toDelete[deleteIndex].kick){
+						games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.emit("Victory", "(The opponent withdrew!)");
+						//verifico que exista el jugador en mi lista
+						if(players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id]){
+							//elimino al jugador de mi lista
+							delete players[games[toDelete[deleteIndex].gameIndex].players[playerKey].socket.id];
+						}
+					}
+				}
+			}
+			//si es kick
+			if(toDelete[deleteIndex].kick){
+				//informo al servidor principal que eliminare el juego
+				socketClient.emit('EndGame', toDelete[deleteIndex].gameIndex);
+				//elimino el juego
+				delete games[toDelete[deleteIndex].gameIndex];
+			}
+		}
+	}
+}, validateInterval);

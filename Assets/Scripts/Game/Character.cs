@@ -470,4 +470,10 @@ public class Character : MonoBehaviour
             }
         }
     }
+
+    //funcion que reproduce los sonidos de las habilidades
+    public void skillSound(string soundName)
+    {
+        ClickSound.PlaySoundBySource(soundName);
+    }
 }

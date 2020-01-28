@@ -7,10 +7,14 @@ using BestHTTP;
 using BestHTTP.SocketIO;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
+using Firebase;
+using Firebase.Auth;
+using Google;
 
 public class IntroScene : MonoBehaviour
 {
     public Button searchOpponent;
+    public Button exitIcon;
     private SocketManager socketManager;
     private int playerId;
     private bool searchingOpponent;
@@ -65,6 +69,9 @@ public class IntroScene : MonoBehaviour
         //seteo la funcion en el boton de busca oponente
         searchOpponent.onClick.AddListener(delegate { SearchOpponent(); });
 
+        //seteo la funcion en el boton de salir
+        exitIcon.onClick.AddListener(delegate { Exit(); });
+
         //informo que aun no empeizo a buscar oponente
         this.searchingOpponent = false;
     }
@@ -91,11 +98,7 @@ public class IntroScene : MonoBehaviour
     private void OpponentFound(Socket socket, Packet packet, params object[] args)
     {
         Loading(false, "");
-        Message("Opponent Found!", 20, 1f, delegate {});
-        this.socketManager.Close();
-        //Finalizamos el audio
-        ClickSound.StopSoundBySource("Audio Source Intro");
-        SceneManager.LoadScene("CharacterSelection");
+        Message("Opponent Found!", 20, 1f, delegate { this.socketManager.Close(); ClickSound.StopSoundBySource("Audio Source Intro"); SceneManager.LoadScene("CharacterSelection"); });
     }
 
     //funcion que activa el panel de carga
@@ -186,6 +189,13 @@ public class IntroScene : MonoBehaviour
         PlayerPrefs.SetString("serverAdress", args[0] as string);
         //mando al jugador a la escena de juego
         SceneManager.LoadScene("Game");
+    }
+
+    //funcion que me desloguea
+    private void Exit()
+    {
+        GoogleSignIn.DefaultInstance.SignOut();
+        this.socketManager.Close(); SceneManager.LoadScene("Login");
     }
 
 }

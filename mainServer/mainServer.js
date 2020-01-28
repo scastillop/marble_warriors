@@ -40,10 +40,20 @@ server.listen(port, function() {
 var modularServers = {};
 
 //aqui se guardaran las partidas en curso
-var games = [];
+var games = {};
 
 //aqui se guardan los datos escenciales de los jugadores (para acceder rapidamente a sus partidas)
 var players = {};
+
+//esta variable indica cada cuantos milisegundos se deben validar que los usuarios realizen acciones
+var  validateInterval= 10000;
+
+//esta variable indica a los cuantos milisegundos se le debe informar al jugador que debe actuar
+var thresholdAlert = 90000;
+
+//esta variable indica a los cuantos milisegundos se debe desconectar un jugador que no ha realizado acciones
+var thresholdkick = 100001;
+
 
 io.on("connection",function(socket){
 	//cuando un servidor modular se conecta
@@ -127,35 +137,51 @@ io.on("connection",function(socket){
 		if(!found){
 			//busco si existe algun juego que esté esperando un jugador
 			var opponentFound = false;
+			var registered = false;
+			var gamesForDelete = [];
 			for(var key in games){
 				//busco juegos que tengan un solo jugador
-				if(games[key].players.length==1){
-					//si lo tiene agrego al jugador
-					var player2 = {
-						id: players[email].id,
-						status: 'connected',
-						socket: socket,
-						email: email,
-						name: players[email].name,
-						index: 1
-					};
-					games[key].players.push(player2);
-					//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
-					players[email].gameIndex = key;
-					players[email].playerIndex = 1;
-					//procedo a generar un identificador unico para el juego
-					var id="";
-					//informo a los jugadores que ya se encontro su oponente
-					for(var playerKey in games[key].players){
-						games[key].players[playerKey].status="selectingChars";
-						games[key].players[playerKey].socket.emit("OpponentFound",key);
-						//agrego informacion al id
-						id = id + games[key].players[playerKey].socket.id;
+				if(games[key].players.length==1&&!registered){
+					//si el jugador esta conectado
+					if(games[key].players[0].socket.connected){
+						//si lo tiene agrego al jugador
+						registered = true;
+						var player2 = {
+							id: players[email].id,
+							status: 'connected',
+							socket: socket,
+							email: email,
+							name: players[email].name,
+							index: 1
+						};
+						games[key].players.push(player2);
+						//asocio los datos de la partida y del juegador a su socket, para luego acceder rapidamente a ellos
+						players[email].gameIndex = key;
+						players[email].playerIndex = 1;
+						players[email].socket = socket;
+						//procedo a generar un identificador unico para el juego
+						var id="";
+						//informo a los jugadores que ya se encontro su oponente
+						for(var playerKey in games[key].players){
+							games[key].players[playerKey].status="selectingChars";
+							players[games[key].players[playerKey].email].lastTime = new Date();
+							games[key].players[playerKey].socket.emit("OpponentFound",key);
+							//agrego informacion al id
+							id = id + games[key].players[playerKey].socket.id;
+						}
+						games[key].id = id;
+						opponentFound = true;
 					}
-					games[key].id = id;
-					opponentFound = true;
+					//si no esta conectado
+					else{
+						delete players[games[key].players[0].email];
+						gamesForDelete.push(key);
+					}
 				}
 			};
+			for (var key in gamesForDelete){
+				delete games[gamesForDelete[key]];
+			}
 			//si no encuentro juegos con un solo jugador creo un nuevo juego para el jugador
 			if(!opponentFound){
 				//creo al jugador
@@ -174,25 +200,51 @@ io.on("connection",function(socket){
 					turn: 0,
 					players: gamePlayers,
 				};
+				//creo un identificador unico para el juego
+				var id =""+(Math.random().toString(36).substr(2, 9));
 				//guardo el juego
-				games.push(game);
+				games[id]=game;
 				//guardo al jugador
-				players[email].gameIndex = games.indexOf(game);
+				players[email].gameIndex = id;
 				players[email].playerIndex = 0;
+				players[email].socket = socket;
 			}
 		}
 	});
 
 	//cuando un jugador solicita el listado de personajes
-	socket.on("GetCharacters", function(data){
-		//obtengo el listado de personajes
-		mysqlConnection.FindAllCharacters(function (result) {
-			socket.emit("SetCharacters",result);
-		});
+	socket.on("GetCharacters", function(email){
+		//busco si ya esta en algun juego
+		var found = false;
+		for(var key in games){
+			//recorro los jugadores del juego
+			for(var playerKey in games[key].players){
+				if(games[key].players[playerKey].email==email){
+					found = true;
+					players[email].gameIndex = key;
+					players[email].playerIndex = playerKey;
+					games[key].players[playerKey].socket = socket;
+				}
+			}
+		}
+		//si lo estoy
+		if(found){
+			//obtengo el listado de personajes
+			mysqlConnection.FindAllCharacters(function (result) {
+				socket.emit("SetCharacters",result);
+			});
+		}else{
+			//si no lo esta lo envio a la pantalla de inicio
+			socket.emit("BackToIntro", "");
+		}
+
+		
 	});
 
 	//cuando un jugador me envia su seleccion de personajes
 	socket.on("SendCharactersSelected", function(data){
+		//elimino la variable de ultima ves que inicio la seleccion de  personajes
+		delete players[data.email].lastTime;
 		//seteo al jugador en modo de espera
 		games[players[data.email].gameIndex].players[players[data.email].playerIndex].status = "waitingForConnection";
 		//agrego el socket al jugador
@@ -242,7 +294,11 @@ io.on("connection",function(socket){
 					games[players[data.email].gameIndex].players[playerKey].status = "onGame";
 				}
 			}
-		}
+		//si no, informo al jugador que debe esperar a su contraparte
+		}else{
+			socket.emit("Wait","Waiting for the opponent...");
+		}	
+
 	});
 
 	//cuando un servidor modular me indica que ha terminado un juego
@@ -262,7 +318,7 @@ io.on("connection",function(socket){
 				delete players[games[foundIndex].players[playerKey].email];
 			}
 			//elimino el juego de mi lista
-			games.splice(foundIndex, 1);
+			delete games[foundIndex];
 		}
 	});
 
@@ -278,7 +334,7 @@ io.on("connection",function(socket){
 					delete players[games[gameIndex].players[playerKey].email];
 				}
 				//elimino el juego de mi lista
-				games.splice(gameIndex, 1);
+				delete games[gameIndex];
 			}
 		}
 
@@ -292,3 +348,44 @@ io.on("connection",function(socket){
 		}
 	});
 });
+
+
+//funcion que verifica cuando los jugadores tardan demasiado en la seleccion de personajes.
+setInterval(function(){
+	//recorro los jugadores
+	for (var playerKey in players){
+		//si el jugador tiene seteado la ultima vez que inicio la seleccion de personajes
+		if(players[playerKey].lastTime){
+			//si el jugador ya supero el umbral determinado para desconectarlo
+			if(((new Date())- players[playerKey].lastTime)>thresholdkick){
+				//guardo el indice del juego
+				var gameIndex = JSON.parse(JSON.stringify(players[playerKey].gameIndex));
+				//recorro los jugadores del juego
+				for (var playerKey2 in games[players[playerKey].gameIndex].players){
+					//si el jugador es el que supero el umbral
+					if(games[gameIndex].players[playerKey2].email == playerKey){
+						//informo en el servidor
+						console.log(new Date(Date.now()).toLocaleString()+" Client ("+games[gameIndex].players[playerKey2].email+") kicked from "+games[gameIndex].players[playerKey2].socket.request.connection.remoteAddress);						
+						//boto al jugador
+						games[gameIndex].players[playerKey2].socket.emit("BackToIntro", "Kicked by time over");		
+					//si es el otro jugador
+					}else{
+						//boto al jugador (inidcando que el oponente se retiro)
+						games[gameIndex].players[playerKey2].socket.emit("BackToIntro", "The opponent withdrew!");		
+					}
+					delete players[games[gameIndex].players[playerKey2].email];
+				}
+				delete games[gameIndex];
+			//si no, valido si superó el umbral para alertarlo
+			}else if(((new Date())- players[playerKey].lastTime)>thresholdAlert&&games[players[playerKey].gameIndex]){
+				//si lo supero busco al jugador en el juego
+				for (var playerKey2 in games[players[playerKey].gameIndex].players){
+					if(players[playerKey]&&games[players[playerKey].gameIndex].players[playerKey2].email == playerKey){
+						//le envio el mensaje de alerta
+						games[players[playerKey].gameIndex].players[playerKey2].socket.emit("ShowMessage", "Hurry up!");
+					}
+				}
+			}
+		}
+	}
+}, validateInterval);
