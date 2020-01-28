@@ -280,12 +280,3 @@ C:\Users\FEX\Documents\unity\Marble Warriors\obj\Debug\Assembly-CSharp.csproj.Co
 C:\Users\FEX\Documents\unity\Marble Warriors\obj\Debug\Assembly-CSharp.csproj.CopyComplete
 C:\Users\FEX\Documents\unity\Marble Warriors\obj\Debug\Assembly-CSharp.dll
 C:\Users\FEX\Documents\unity\Marble Warriors\obj\Debug\Assembly-CSharp.pdb
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Firebase.App.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Firebase.Auth.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Firebase.Platform.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Firebase.TaskExtension.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Google.MiniJson.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Unity.Compat.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\Unity.Tasks.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\UnityEngine.SpatialTrackingModule.dll
-C:\Users\FEX\Documents\unity\Marble Warriors\Temp\bin\Debug\UnityEngine.SpatialTrackingModule.xml
